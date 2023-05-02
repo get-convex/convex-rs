@@ -203,7 +203,6 @@ impl WebSocketWorker {
                 },
                 server_msg = internal.ws_stream.try_next().fuse() => {
                     if let Ok(Some(message)) = server_msg {
-                        tracing::debug!("received message {message:?}");
                         self.last_server_response = Instant::now();
 
                         match message {
@@ -215,9 +214,12 @@ impl WebSocketWorker {
                             },
                             Message::Text(t) => {
                                 let json: serde_json::Value = serde_json::from_str(&t).context("JsonDeserializeError")?;
+                                tracing::debug!("received message {json:?}");
                                 let _ = self.on_response.send(ProtocolResponse::ServerMessage(json.try_into()?)).await;
                             }
-                            _ => {},
+                            _ => {
+                                tracing::debug!("received unknown message {message}");
+                            },
                         }
                     }
                 },

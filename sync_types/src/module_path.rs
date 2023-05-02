@@ -81,8 +81,8 @@ impl ModulePath {
         } = self;
         let ext = path
             .extension()
-            .ok_or_else(|| anyhow::anyhow!("Path {path:?} doesn't have an extension"))?;
-        anyhow::ensure!(ext == "js", "Path {path:?} doesn't have a '.js' extension");
+            .ok_or_else(|| anyhow::anyhow!("Path {path:?} doesn't have an extension."))?;
+        anyhow::ensure!(ext == "js", "Path {path:?} doesn't have a '.js' extension.");
         Ok(CanonicalizedModulePath {
             path,
             is_system,
@@ -103,7 +103,7 @@ fn canonicalize_path_buf(mut path: PathBuf) -> PathBuf {
 fn check_valid_path_component(s: &str) -> anyhow::Result<()> {
     if s.len() > MAX_IDENTIFIER_LEN {
         anyhow::bail!(
-            "Path component is too long ({} > maximum {})",
+            "Path component is too long ({} > maximum {}).",
             s.len(),
             MAX_IDENTIFIER_LEN
         );
@@ -113,11 +113,11 @@ fn check_valid_path_component(s: &str) -> anyhow::Result<()> {
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
     {
         anyhow::bail!(
-            "Path component {s} can only contain alphanumeric characters, underscores, or periods"
+            "Path component {s} can only contain alphanumeric characters, underscores, or periods."
         );
     }
     if !s.chars().any(|c| c.is_ascii_alphanumeric()) {
-        anyhow::bail!("Path component {s} must have at least one alphanumeric character");
+        anyhow::bail!("Path component {s} must have at least one alphanumeric character.");
     }
     Ok(())
 }
@@ -129,11 +129,11 @@ impl FromStr for ModulePath {
     fn from_str(p: &str) -> Result<Self, Self::Err> {
         let path = PathBuf::from(p);
         if path.file_name().is_none() {
-            anyhow::bail!("Module path {p} doesn't have a filename");
+            anyhow::bail!("Module path {p} doesn't have a filename.");
         }
         if let Some(ext) = path.extension() {
             if ext != "js" {
-                anyhow::bail!("Module path ({}) has an extension that isn't 'js'", p);
+                anyhow::bail!("Module path ({}) has an extension that isn't 'js'.", p);
             }
         }
 
@@ -141,15 +141,15 @@ impl FromStr for ModulePath {
             .components()
             .map(|component| match component {
                 Component::Normal(c) => c.to_str().ok_or_else(|| {
-                    anyhow::anyhow!("Path {p} contains an invalid Unicode character")
+                    anyhow::anyhow!("Path {p} contains an invalid Unicode character.")
                 }),
                 Component::RootDir => {
-                    anyhow::bail!("Module paths must be relative ({p} is absolute)")
+                    anyhow::bail!("Module paths must be relative ({p} is absolute).")
                 },
-                c => anyhow::bail!("Invalid path component {c:?} in {p}"),
+                c => anyhow::bail!("Invalid path component {c:?} in {p}."),
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
-        anyhow::ensure!(!components.is_empty(), "Module paths must be nonempty");
+        anyhow::ensure!(!components.is_empty(), "Module paths must be nonempty.");
 
         // Determine the module type based on the first components.
         let is_system = matches!(&components[..], &[SYSTEM_UDF_DIR, ..]);
@@ -165,15 +165,15 @@ impl FromStr for ModulePath {
             let Component::Normal(component) = component else {
                 anyhow::bail!("Invalid path component in {p}");
             };
-            let component = component
-                .to_str()
-                .ok_or_else(|| anyhow::anyhow!("Path {p} contains an invalid Unicode character"))?;
+            let component = component.to_str().ok_or_else(|| {
+                anyhow::anyhow!("Path {p} contains an invalid Unicode character.")
+            })?;
             check_valid_path_component(component)?;
         }
 
         let canonicalized_string = canonicalized
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Path {p} contains an invalid Unicode character"))?;
+            .ok_or_else(|| anyhow::anyhow!("Path {p} contains an invalid Unicode character."))?;
         let is_http = canonicalized_string == HTTP_PATH;
         let is_cron = canonicalized_string == CRON_PATH;
 

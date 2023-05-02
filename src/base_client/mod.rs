@@ -650,12 +650,14 @@ impl BaseConvexClient {
             let Some(_udf_path) = self
                     .state
                     .query_path(*query_id) else {
-                return Err("Received unexpected query results from the server.".to_string());
+                // It's possible that we've already unsubscribed to this query but
+                // the server hasn't learned about that yet. If so, ignore this one.
+                continue;
             };
             let _args = self
                 .state
                 .query_args(*query_id)
-                .expect("INTERNAL BUG: Received unexpected query results from the server.");
+                .expect("INTERNAL BUG: Query args exist, but not query path.");
             query_id_to_value.insert(
                 *query_id,
                 Query {

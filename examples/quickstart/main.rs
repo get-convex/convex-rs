@@ -7,8 +7,8 @@ use convex::ConvexClient;
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
     dotenv::from_filename(".env.local").ok();
+    dotenv::dotenv().ok();
 
     let deployment_url = env::var("CONVEX_URL").unwrap();
 

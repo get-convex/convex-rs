@@ -2,7 +2,7 @@
 
 The official Rust client for [Convex](https://convex.dev/).
 
-![GitHub](https://img.shields.io/github/license/get-convex/convex-rs?)
+![GitHub](https://img.shields.io/github/license/get-convex/convex-rs)
 
 Convex is the backend application platform with everything you need to build
 your product.
@@ -20,7 +20,7 @@ Add the following to your `Cargo.toml` file
 
 ```toml
 [dependencies]
-convex = "0.1"
+convex = "*"
 ```
 
 # Example
