@@ -37,6 +37,7 @@ pub enum Value {
     derive_more::Into,
     derive_more::AsRef,
     derive_more::Deref,
+    derive_more::Display,
 )]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct DocumentId(String);

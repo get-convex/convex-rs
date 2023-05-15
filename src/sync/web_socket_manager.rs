@@ -4,8 +4,13 @@ use anyhow::Context;
 use async_trait::async_trait;
 use convex_sync_types::{
     backoff::Backoff,
+    headers::{
+        DEPRECATION_MSG_HEADER_NAME,
+        DEPRECATION_STATE_HEADER_NAME,
+    },
     ClientMessage,
     SessionId,
+    Timestamp,
 };
 use futures::{
     channel::{
@@ -16,7 +21,6 @@ use futures::{
     FutureExt,
     SinkExt,
     StreamExt,
-    TryStreamExt,
 };
 use tokio::{
     net::TcpStream,
@@ -29,7 +33,9 @@ use tokio::{
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{
+        self,
         client::IntoClientRequest,
+        http::HeaderMap,
         protocol::Message,
     },
     MaybeTlsStream,
@@ -40,28 +46,30 @@ use uuid::Uuid;
 
 use crate::sync::{
     ProtocolResponse,
-    ReconnectProtocolReason,
+    ReconnectRequest,
+    ServerMessage,
     SyncProtocol,
 };
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
-const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
+const INITIAL_BACKOFF: Duration = Duration::from_millis(100);
+const MAX_BACKOFF: Duration = Duration::from_secs(15);
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+#[derive(Debug)]
 enum WebSocketRequest {
     SendMessage(ClientMessage, oneshot::Sender<()>),
-    Reconnect(ReconnectProtocolReason),
+    Reconnect(ReconnectRequest),
 }
 
 struct WebSocketInternal {
     ws_stream: WsStream,
+    last_server_response: Instant,
 }
 struct WebSocketWorker {
     ws_url: Url,
     on_response: mpsc::Sender<ProtocolResponse>,
     internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
-    last_server_response: Instant,
     ping_ticker: Interval,
     connection_count: u32,
     backoff: Backoff,
@@ -102,10 +110,10 @@ impl SyncProtocol for WebSocketManager {
         Ok(())
     }
 
-    async fn reconnect(&mut self, reason: ReconnectProtocolReason) {
+    async fn reconnect(&mut self, request: ReconnectRequest) {
         let _ = self
             .internal_sender
-            .send(WebSocketRequest::Reconnect(reason))
+            .send(WebSocketRequest::Reconnect(request))
             .await;
     }
 }
@@ -121,7 +129,6 @@ impl WebSocketWorker {
         on_response: mpsc::Sender<ProtocolResponse>,
         internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
     ) -> anyhow::Result<()> {
-        let last_server_response = Instant::now();
         let ping_ticker = tokio::time::interval(Self::HEARTBEAT_INTERVAL);
         let backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
 
@@ -129,19 +136,20 @@ impl WebSocketWorker {
             ws_url,
             on_response,
             internal_receiver,
-            last_server_response,
             ping_ticker,
             connection_count: 0,
             backoff,
         };
 
         let mut last_close_reason = "InitialConnect".to_string();
+        let mut max_observed_timestamp = None;
         loop {
-            let e = match worker.work(last_close_reason).await {
-                Ok(reason) => {
+            let e = match worker.work(last_close_reason, max_observed_timestamp).await {
+                Ok(reconnect) => {
                     // WS worker exited cleanly because it got a request to reconnect
-                    tracing::debug!("Reconnecting websocket due to {reason}");
-                    last_close_reason = reason;
+                    tracing::debug!("Reconnecting websocket due to {}", reconnect.reason);
+                    last_close_reason = reconnect.reason;
+                    max_observed_timestamp = reconnect.max_observed_timestamp;
                     continue;
                 },
                 Err(e) => e,
@@ -161,10 +169,14 @@ impl WebSocketWorker {
             tracing::debug!("Waiting for base client to acknowledge reconnect");
             loop {
                 let request = worker.internal_receiver.next().await;
-                let Some(WebSocketRequest::Reconnect(_)) = request else {
-                    continue;
-                };
-                break;
+                // TODO: There is a potential issue where we have multiple queued reconnect
+                // requests in which case max_observed_timestamp might be lower than actually
+                // observed. This is fine since it will never cause errors. Will can fix this
+                // when we restructure the wider protocol to be a single routine.
+                if let Some(WebSocketRequest::Reconnect(reconnect)) = request {
+                    max_observed_timestamp = reconnect.max_observed_timestamp;
+                    break;
+                }
             }
             tracing::debug!(
                 "Base client acknowledged reconnect. Sleeping {delay:?} and reconnecting"
@@ -176,8 +188,9 @@ impl WebSocketWorker {
 
     async fn work(
         &mut self,
-        last_close_reason: ReconnectProtocolReason,
-    ) -> anyhow::Result<ReconnectProtocolReason> {
+        last_close_reason: String,
+        max_seen_transition: Option<Timestamp>,
+    ) -> anyhow::Result<ReconnectRequest> {
         let verb = if self.connection_count == 0 {
             "connect"
         } else {
@@ -188,44 +201,56 @@ impl WebSocketWorker {
             self.ws_url.clone(),
             self.connection_count,
             last_close_reason,
+            max_seen_transition,
         )
         .await?;
         tracing::debug!("completed websocket {verb} to {}", self.ws_url);
-        self.backoff.reset();
 
         loop {
             select_biased! {
                 _ = self.ping_ticker.tick().fuse() => {
                     let now = Instant::now();
-                    if now - self.last_server_response > Self::SERVER_INACTIVITY_THRESHOLD {
+                    if now - internal.last_server_response > Self::SERVER_INACTIVITY_THRESHOLD {
                         anyhow::bail!("InactiveServer");
                     }
                 },
-                server_msg = internal.ws_stream.try_next().fuse() => {
-                    if let Ok(Some(message)) = server_msg {
-                        self.last_server_response = Instant::now();
+                server_msg = internal.ws_stream.select_next_some() => {
+                    internal.last_server_response = Instant::now();
 
-                        match message {
-                            Message::Close(close_frame) => {
-                                let close_frame = close_frame.context("CloseMessageWithoutFrame")?;
-                                tracing::debug!("Close frame {close_frame}");
-                                let last_close_reason = close_frame.reason.as_ref();
-                                anyhow::bail!("{last_close_reason}");
-                            },
-                            Message::Text(t) => {
-                                let json: serde_json::Value = serde_json::from_str(&t).context("JsonDeserializeError")?;
-                                tracing::debug!("received message {json:?}");
-                                let _ = self.on_response.send(ProtocolResponse::ServerMessage(json.try_into()?)).await;
-                            }
-                            _ => {
-                                tracing::debug!("received unknown message {message}");
-                            },
+                    match server_msg.context("WebsocketConnectionError")? {
+                        Message::Close(close_frame) => {
+                            let close_frame = close_frame.context("CloseMessageWithoutFrame")?;
+                            tracing::debug!("Close frame {close_frame}");
+                            let last_close_reason = close_frame.reason.as_ref();
+                            anyhow::bail!("{last_close_reason}");
+                        },
+                        Message::Text(t) => {
+                            let json: serde_json::Value = serde_json::from_str(&t).context("JsonDeserializeError")?;
+                            let server_message = json.try_into()?;
+                            match server_message {
+                                ServerMessage::Ping => tracing::trace!("received message {server_message:?}"),
+                                _ => tracing::debug!("received message {server_message:?}"),
+                            };
+
+                            let _ = self.on_response.send(ProtocolResponse::ServerMessage(server_message)).await;
+
+                            // TODO: Similar to JS, we should ideally only reset backoff if we get
+                            // the client gets into a correct state, where we have Connected and
+                            // received a response to our pending Queries and Mutations.
+                            self.backoff.reset();
+                        },
+                        Message::Ping(_) => {
+                            tracing::trace!("received Ping");
                         }
+                        server_msg => {
+                            tracing::debug!("received unknown message {server_msg:?}");
+                        },
                     }
                 },
                 request = self.internal_receiver.select_next_some() => {
                     match request {
                         WebSocketRequest::SendMessage(message, sender) => {
+                            tracing::debug!("Sending {message:?}");
                             let msg = Message::Text(serde_json::Value::try_from(message).context("JsonSerializeError")?.to_string());
                             internal.send_worker(msg.clone()).await?;
                             let _ = sender.send(());
@@ -238,11 +263,18 @@ impl WebSocketWorker {
     }
 }
 
+fn deprecation_message(headers: &HeaderMap) -> Option<String> {
+    let dep_state = headers.get(DEPRECATION_STATE_HEADER_NAME)?.to_str().ok()?;
+    let msg = headers.get(DEPRECATION_MSG_HEADER_NAME)?.to_str().ok()?;
+    Some(format!("{dep_state}: {msg}"))
+}
+
 impl WebSocketInternal {
     async fn new(
         ws_url: Url,
         connection_count: u32,
         last_close_reason: String,
+        _max_observed_timestamp: Option<Timestamp>,
     ) -> anyhow::Result<WebSocketInternal> {
         let mut request = (&ws_url).into_client_request().context("Bad WS Url")?;
         let version = VERSION.unwrap_or("unknown");
@@ -252,11 +284,27 @@ impl WebSocketInternal {
                 .try_into()
                 .context("Bad version")?,
         );
-        let (ws_stream, _response) = connect_async(request)
-            .await
-            .context(format!("Connection to {ws_url} failed"))?;
+        let (ws_stream, response) = connect_async(request).await.map_err(|e| {
+            if let tungstenite::Error::Http(ref response) = e {
+                let body = response
+                    .body()
+                    .as_deref()
+                    .map(String::from_utf8_lossy)
+                    .unwrap_or_default();
+                return anyhow::anyhow!("Connection to {ws_url} failed: {e}: {body}");
+            }
+            anyhow::anyhow!("Connection to {ws_url} failed: {e}")
+        })?;
 
-        let mut internal = WebSocketInternal { ws_stream };
+        if let Some(msg) = deprecation_message(response.headers()) {
+            tracing::warn!("{msg}");
+        }
+
+        let last_server_response = Instant::now();
+        let mut internal = WebSocketInternal {
+            ws_stream,
+            last_server_response,
+        };
 
         // Send an initial connect message on the new websocket
         let session_id = Uuid::new_v4();

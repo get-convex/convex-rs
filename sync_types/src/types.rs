@@ -154,51 +154,30 @@ impl Deref for UserIdentifier {
 // TODO: Make issuer and subject not optional to match TypeScript
 // type and runtime behavior. Requires all FunctionTesters
 // to require them.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct UserIdentityAttributes {
     pub token_identifier: UserIdentifier,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub issuer: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub subject: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub given_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub family_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub nickname: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub preferred_username: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub picture_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub website_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub gender: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub birthday: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number_verified: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
     /// Stored as RFC3339 string
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
 }
 

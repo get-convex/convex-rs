@@ -74,6 +74,16 @@ impl From<UdfPath> for String {
     }
 }
 
+impl fmt::Display for UdfPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref function) = self.function {
+            write!(f, "{}:{}", self.module.as_str(), function)
+        } else {
+            write!(f, "{}", self.module.as_str())
+        }
+    }
+}
+
 impl From<CanonicalizedUdfPath> for UdfPath {
     fn from(p: CanonicalizedUdfPath) -> Self {
         Self {

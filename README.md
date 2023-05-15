@@ -53,6 +53,6 @@ by running your program with `RUST_LOG=convex=debug`.
 
 ```rust
 tracing_subscriber::fmt()
-    .with_env_filter(EnvFilter::from_default_env())
+    .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
     .init();
 ```

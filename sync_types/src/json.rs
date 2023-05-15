@@ -248,7 +248,7 @@ impl TryFrom<ClientMessage> for JsonValue {
                 base_version,
                 token: AuthenticationTokenJson::Admin {
                     value,
-                    acting_as: acting_as.map(serde_json::to_value).transpose()?,
+                    acting_as: acting_as.map(|a| a.try_into()).transpose()?,
                 },
             },
             ClientMessage::Authenticate {
@@ -760,29 +760,50 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UserIdentityAttributesJson {
+    // Always exists when serializing
     pub token_identifier: Option<UserIdentifier>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub issuer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub subject: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub given_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub family_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nickname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub preferred_username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub picture_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub website_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gender: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub birthday: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
 }
 
@@ -791,7 +812,6 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let raw: UserIdentityAttributesJson = serde_json::from_value(value)?;
-
         let token_identifier = if let Some(token_identifier) = raw.token_identifier {
             token_identifier
         } else if let (Some(issuer), Some(subject)) = (&raw.issuer, &raw.subject) {
@@ -823,6 +843,37 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
             address: raw.address,
             updated_at: raw.updated_at,
         })
+    }
+}
+
+impl TryFrom<UserIdentityAttributes> for JsonValue {
+    type Error = anyhow::Error;
+
+    fn try_from(value: UserIdentityAttributes) -> Result<Self, Self::Error> {
+        let raw = UserIdentityAttributesJson {
+            token_identifier: Some(value.token_identifier),
+            issuer: value.issuer,
+            subject: value.subject,
+            name: value.name,
+            given_name: value.given_name,
+            family_name: value.family_name,
+            nickname: value.nickname,
+            preferred_username: value.preferred_username,
+            profile_url: value.profile_url,
+            picture_url: value.picture_url,
+            website_url: value.website_url,
+            email: value.email,
+            email_verified: value.email_verified,
+            gender: value.gender,
+            birthday: value.birthday,
+            timezone: value.timezone,
+            language: value.language,
+            phone_number: value.phone_number,
+            phone_number_verified: value.phone_number_verified,
+            address: value.address,
+            updated_at: value.updated_at,
+        };
+        Ok(serde_json::to_value(raw)?)
     }
 }
 
@@ -885,6 +936,11 @@ mod tests {
         #[test]
         fn proptest_server_message_roundtrips(m in any::<ServerMessage<TestValue>>()) {
             assert_roundtrips::<ServerMessage<TestValue>, JsonValue>(m);
+        }
+
+        #[test]
+        fn proptest_user_identity_attributes_roundtrips(m in any::<UserIdentityAttributes>()) {
+            assert_roundtrips::<UserIdentityAttributes, JsonValue>(m);
         }
     }
 

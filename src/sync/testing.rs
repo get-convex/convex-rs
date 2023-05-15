@@ -17,9 +17,9 @@ use parking_lot::Mutex;
 use url::Url;
 use uuid::Uuid;
 
+use super::ReconnectRequest;
 use crate::sync::{
     ProtocolResponse,
-    ReconnectProtocolReason,
     ServerMessage,
     SyncProtocol,
 };
@@ -95,7 +95,7 @@ impl SyncProtocol for TestProtocolManager {
         Ok(())
     }
 
-    async fn reconnect(&mut self, reason: ReconnectProtocolReason) {
-        panic!("Test reconnected with reason {reason}");
+    async fn reconnect(&mut self, request: ReconnectRequest) {
+        panic!("Test reconnected {request:?}");
     }
 }

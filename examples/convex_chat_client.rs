@@ -20,9 +20,14 @@ use convex::{
     FunctionResult,
     Value,
 };
-use futures::StreamExt;
+use futures::{
+    channel::oneshot,
+    pin_mut,
+    select_biased,
+    FutureExt,
+    StreamExt,
+};
 use maplit::btreemap;
-use tracing_subscriber::EnvFilter;
 
 const SETUP_MSG: &str = r"
 Please run this Convex Chat client from an initialized Convex project.
@@ -42,12 +47,12 @@ cd /path/to/convex-demos/tutorial
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
     // Load the tutorial's VITE_CONVEX_URL from the env file
-    dotenv::dotenv().ok();
     dotenv::from_filename(".env.local").ok();
+    dotenv::dotenv().ok();
     let Ok(deployment_url) = env::var("VITE_CONVEX_URL") else {
         panic!("{SETUP_MSG}");
     };
@@ -68,39 +73,50 @@ async fn main() -> anyhow::Result<()> {
     let sender_clone = sender.clone();
 
     // Thread listening for new messages (use_query demo)
-    let _handle = tokio::spawn(async move {
+    let (cancel_sender, cancel_receiver) = oneshot::channel::<()>();
+    let handle = tokio::spawn(async move {
         let mut subscription = client
             .subscribe("listMessages", btreemap! {})
             .await
             .unwrap();
 
-        while let Some(new_val) = subscription.next().await {
-            println!(
-                "{}",
-                format!("---------------- Message History ----------------").yellow()
-            );
-            if let FunctionResult::Value(Value::Array(array)) = new_val {
-                for item in array {
-                    if let Value::Object(obj) = item {
-                        if let Some(Value::String(str)) = obj.get("body") {
-                            let author = match obj.get("author") {
-                                Some(Value::String(name)) => name,
-                                _ => "Anonymous Author",
-                            };
-                            let author_string = if author == &sender_clone {
-                                format!("{}", author).yellow().bold()
-                            } else {
-                                format!("{}", author).red().bold()
-                            };
-                            println!("{}: {:?}", author_string, str);
+        let cancel_fut = cancel_receiver.fuse();
+        pin_mut!(cancel_fut);
+        loop {
+            select_biased! {
+                new_val = subscription.next().fuse() => {
+                    let new_val = new_val.expect("Client dropped prematurely");
+                    println!(
+                        "{}",
+                        format!("---------------- Message History ----------------").yellow()
+                    );
+                    if let FunctionResult::Value(Value::Array(array)) = new_val {
+                        for item in array {
+                            if let Value::Object(obj) = item {
+                                if let Some(Value::String(str)) = obj.get("body") {
+                                    let author = match obj.get("author") {
+                                        Some(Value::String(name)) => name,
+                                        _ => "Anonymous Author",
+                                    };
+                                    let author_string = if author == &sender_clone {
+                                        format!("{}", author).yellow().bold()
+                                    } else {
+                                        format!("{}", author).red().bold()
+                                    };
+                                    println!("{}: {:?}", author_string, str);
+                                }
+                            }
                         }
                     }
-                }
+                    println!(
+                        "{}",
+                        format!("-------------- End Message History --------------").yellow()
+                    );
+                },
+                _ = cancel_fut => {
+                    break
+                },
             }
-            println!(
-                "{}",
-                format!("-------------- End Message History --------------").yellow()
-            );
         }
         println!("Message listener closed");
     });
@@ -148,6 +164,11 @@ async fn main() -> anyhow::Result<()> {
             },
         };
     }
+
+    cancel_sender
+        .send(())
+        .expect("Failed to send termination signal");
+    handle.await?;
 
     Ok(())
 }

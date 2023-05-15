@@ -3,10 +3,13 @@
 //! a framework.
 //!
 //! See docs for [`BaseConvexClient`].
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-    VecDeque,
+use std::{
+    cmp,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+        VecDeque,
+    },
 };
 
 use convex_sync_types::{
@@ -20,6 +23,7 @@ use convex_sync_types::{
     SessionRequestSeqNumber,
     StateModification,
     StateVersion,
+    Timestamp,
     UdfPath,
 };
 use serde_json::json;
@@ -419,6 +423,7 @@ pub struct BaseConvexClient {
     request_manager: RequestManager,
     next_request_id: SessionRequestSeqNumber,
     outgoing_message_queue: VecDeque<ClientMessage>,
+    max_observed_timestamp: Option<Timestamp>,
 }
 
 impl BaseConvexClient {
@@ -437,6 +442,7 @@ impl BaseConvexClient {
             optimistic_query_results,
             next_request_id,
             outgoing_message_queue: VecDeque::new(),
+            max_observed_timestamp: None,
         }
     }
 
@@ -485,7 +491,7 @@ impl BaseConvexClient {
     ) -> oneshot::Receiver<FunctionResult> {
         let request_id = self.next_request_id;
         self.next_request_id = request_id + 1;
-        tracing::info!("Starting mutation {udf_path:?} with id {request_id:?}");
+        tracing::info!("Starting mutation {udf_path} with id {request_id}");
         let message = ClientMessage::Mutation {
             request_id,
             udf_path,
@@ -544,6 +550,19 @@ impl BaseConvexClient {
         self.outgoing_message_queue.pop_front()
     }
 
+    fn observe_timestamp(&mut self, ts: Timestamp) {
+        if let Some(max_observed_timestamp) = self.max_observed_timestamp {
+            self.max_observed_timestamp = Some(cmp::max(ts, max_observed_timestamp));
+        } else {
+            self.max_observed_timestamp = Some(ts);
+        }
+    }
+
+    /// Returns the maximum timestamp observed by the client.
+    pub fn max_observed_timestamp(&self) -> Option<Timestamp> {
+        self.max_observed_timestamp
+    }
+
     /// Given a message from a Server, update the base state accordingly.
     pub fn receive_message(
         &mut self,
@@ -551,6 +570,7 @@ impl BaseConvexClient {
     ) -> Result<Option<QueryResults>, ReconnectProtocolReason> {
         match message {
             ServerMessage::Transition { end_version, .. } => {
+                self.observe_timestamp(end_version.ts);
                 self.remote_query_set.transition(message)?;
                 let completed_requests = self
                     .request_manager
@@ -577,6 +597,9 @@ impl BaseConvexClient {
                 ts,
                 log_lines: _,
             } => {
+                if let Some(ts) = ts {
+                    self.observe_timestamp(ts);
+                }
                 let request_id = RequestId::new(request_id);
                 self.request_manager.update_request(
                     &request_id,

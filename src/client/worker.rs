@@ -33,14 +33,15 @@ use crate::{
     sync::{
         ProtocolResponse,
         ReconnectProtocolReason,
+        ReconnectRequest,
         SyncProtocol,
     },
     value::Value,
     FunctionResult,
 };
 
-const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
+const INITIAL_BACKOFF: Duration = Duration::from_millis(100);
+const MAX_BACKOFF: Duration = Duration::from_secs(15);
 
 pub enum ClientRequest {
     Mutation(
@@ -116,7 +117,12 @@ pub async fn worker<T: SyncProtocol>(
         // Tell the sync protocol to reconnect followed by an immediate resend of
         // ongoing queries/mutations. It's important these happen together to
         // ensure mutation ordering.
-        protocol_manager.reconnect(e).await;
+        protocol_manager
+            .reconnect(ReconnectRequest {
+                reason: e,
+                max_observed_timestamp: base_client.max_observed_timestamp(),
+            })
+            .await;
         base_client.resend_ongoing_queries_mutations();
         flush_messages(&mut base_client, &mut protocol_manager).await;
         tokio::time::sleep(delay).await;
@@ -135,7 +141,6 @@ async fn _worker_once<T: SyncProtocol>(
         protocol_response = protocol_response_receiver.next().fuse() => {
             match protocol_response {
                 Some(ProtocolResponse::ServerMessage(msg)) => {
-                    tracing::debug!("Received server message: {msg:?}");
                     if let Some(subscriber_id_to_latest_value) = base_client.receive_message(msg)? {
                         // Notify watchers of the new consistent query results at new timestamp
                         let _ = watch_sender.send(subscriber_id_to_latest_value);
