@@ -14,10 +14,7 @@ use serde_json::{
     Value as JsonValue,
 };
 
-use crate::value::{
-    DocumentId,
-    Value,
-};
+use crate::value::Value;
 
 mod bytes;
 mod float;
@@ -31,7 +28,6 @@ fn is_negative_zero(n: f64) -> bool {
 impl From<Value> for JsonValue {
     fn from(value: Value) -> JsonValue {
         match value {
-            Value::Id(id) => json!({ "$id": id.0 }),
             Value::Null => JsonValue::Null,
             Value::Int64(n) => json!({ "$integer": integer::JsonInteger::encode(n) }),
             Value::Float64(n) => {
@@ -96,10 +92,6 @@ impl TryFrom<JsonValue> for Value {
                 if map.len() == 1 {
                     let (key, value) = map.into_iter().next().unwrap();
                     match &key[..] {
-                        "$id" => {
-                            let s: String = serde_json::from_value(value)?;
-                            Self::Id(DocumentId(s))
-                        },
                         "$bytes" => {
                             let i: String = serde_json::from_value(value)?;
                             Self::Bytes(bytes::JsonBytes::decode(i)?)

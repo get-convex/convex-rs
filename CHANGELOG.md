@@ -1,5 +1,12 @@
 # Upcoming
 
+# 0.3.0
+
+- Remove `Value::Id` since document IDs are `Value::String`s for Convex
+  functions starting from NPM version 0.17
+- Minor improvements to convex_chat_client example
+- Minor improvements in convex_sync_types
+
 # 0.2.0
 
 - BUGFIX: Client occasionally used to get stuck in a hot loop after network

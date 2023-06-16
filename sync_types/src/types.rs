@@ -88,6 +88,7 @@ pub enum ClientMessage {
         session_id: SessionId,
         connection_count: u32,
         last_close_reason: String,
+        max_observed_timestamp: Option<Timestamp>,
     },
     ModifyQuerySet {
         base_version: QuerySetVersion,

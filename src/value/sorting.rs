@@ -9,14 +9,10 @@ use std::{
     },
 };
 
-use crate::value::{
-    DocumentId,
-    Value,
-};
+use crate::value::Value;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
 enum OrdValue<'a> {
-    Id(&'a DocumentId),
     Null,
     Int64(i64),
     Float64(TotalOrdF64),
@@ -32,7 +28,6 @@ enum OrdValue<'a> {
 impl<'a> From<&'a Value> for OrdValue<'a> {
     fn from(v: &'a Value) -> OrdValue<'a> {
         match v {
-            Value::Id(x) => OrdValue::Id(x),
             Value::Null => OrdValue::Null,
             Value::Int64(x) => OrdValue::Int64(*x),
             Value::Float64(x) => OrdValue::Float64(TotalOrdF64(*x)),

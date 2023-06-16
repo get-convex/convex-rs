@@ -11,7 +11,6 @@ mod sorting;
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub enum Value {
-    Id(DocumentId),
     Null,
     Int64(i64),
     Float64(f64),
@@ -22,30 +21,6 @@ pub enum Value {
     Set(BTreeSet<Value>),
     Map(BTreeMap<Value, Value>),
     Object(BTreeMap<String, Value>),
-}
-
-/// An identifier to a Convex document.
-#[derive(
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    derive_more::FromStr,
-    derive_more::From,
-    derive_more::Into,
-    derive_more::AsRef,
-    derive_more::Deref,
-    derive_more::Display,
-)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct DocumentId(String);
-
-impl From<DocumentId> for Value {
-    fn from(v: DocumentId) -> Value {
-        Value::Id(v)
-    }
 }
 
 impl<T: Into<Value>> From<Option<T>> for Value {
@@ -100,30 +75,24 @@ impl From<Vec<Value>> for Value {
 mod proptest {
     use proptest::prelude::*;
 
-    use super::{
-        DocumentId,
-        Value,
-    };
+    use super::Value;
 
     impl Arbitrary for Value {
         type Parameters = ();
         type Strategy = proptest::strategy::BoxedStrategy<Self>;
 
         fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-            value_strategy(true, 4, 32, 8).boxed()
+            value_strategy(4, 32, 8).boxed()
         }
     }
 
     fn value_strategy(
-        allow_ids: bool,
         depth: usize,
         node_target: usize,
         branching: usize,
     ) -> impl Strategy<Value = Value> {
-        let id_weight = if allow_ids { 1 } else { 0 };
         // https://altsysrq.github.io/proptest-book/proptest/tutorial/recursive.html
         let leaf = prop_oneof![
-            id_weight => any::<DocumentId>().prop_map(Value::Id),
             1 => Just(Value::Null),
             1 => any::<i64>().prop_map(Value::from),
             1 => (prop::num::f64::ANY | prop::num::f64::SIGNALING_NAN).prop_map(Value::from),

@@ -42,10 +42,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 
 mod value;
-pub use value::{
-    DocumentId,
-    Value,
-};
+pub use value::Value;
 
 mod client;
 pub use client::{

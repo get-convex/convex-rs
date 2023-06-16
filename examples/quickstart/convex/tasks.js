@@ -1,5 +1,5 @@
 import { query } from "./_generated/server";
 
-export default query(async ({ db }) => {
+export const get = query(async ({ db }) => {
   return await db.query("tasks").collect();
 });

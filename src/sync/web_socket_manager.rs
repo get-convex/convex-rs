@@ -274,7 +274,7 @@ impl WebSocketInternal {
         ws_url: Url,
         connection_count: u32,
         last_close_reason: String,
-        _max_observed_timestamp: Option<Timestamp>,
+        max_observed_timestamp: Option<Timestamp>,
     ) -> anyhow::Result<WebSocketInternal> {
         let mut request = (&ws_url).into_client_request().context("Bad WS Url")?;
         let version = VERSION.unwrap_or("unknown");
@@ -312,6 +312,7 @@ impl WebSocketInternal {
             session_id: SessionId::new(session_id),
             connection_count,
             last_close_reason,
+            max_observed_timestamp,
         };
         let msg = Message::Text(
             serde_json::Value::try_from(message)

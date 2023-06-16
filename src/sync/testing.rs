@@ -80,6 +80,7 @@ impl SyncProtocol for TestProtocolManager {
                 session_id: SessionId::new(session_id),
                 connection_count,
                 last_close_reason: "InitialConnect".to_string(),
+                max_observed_timestamp: None,
             })
             .await?;
 

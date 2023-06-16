@@ -51,8 +51,8 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     // Load the tutorial's VITE_CONVEX_URL from the env file
-    dotenv::from_filename(".env.local").ok();
-    dotenv::dotenv().ok();
+    dotenvy::from_filename(".env.local").ok();
+    dotenvy::dotenv().ok();
     let Ok(deployment_url) = env::var("VITE_CONVEX_URL") else {
         panic!("{SETUP_MSG}");
     };
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
     let (cancel_sender, cancel_receiver) = oneshot::channel::<()>();
     let handle = tokio::spawn(async move {
         let mut subscription = client
-            .subscribe("listMessages", btreemap! {})
+            .subscribe("messages:list", btreemap! {})
             .await
             .unwrap();
 
@@ -140,7 +140,7 @@ async fn main() -> anyhow::Result<()> {
         println!("{}", format!("Sending a message").yellow().bold());
         let result = client_
             .mutation(
-                "sendMessage",
+                "messages:send",
                 btreemap! {
                     "body".to_string() => line.try_into()?,
                     "author".to_string() => sender.clone().try_into()?
@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             FunctionResult::Value(v) => {
                 println!(
                     "{}",
-                    format!("Unexpected non-null result from sendMessage {v:?}")
+                    format!("Unexpected non-null result from messages:send {v:?}")
                         .red()
                         .bold()
                 );

@@ -157,6 +157,10 @@ enum ClientMessageJson {
         #[serde(default)]
         #[serde(skip_serializing_if = "Option::is_none")]
         last_close_reason: Option<String>,
+
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_observed_timestamp: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     ModifyQuerySet {
@@ -204,10 +208,12 @@ impl TryFrom<ClientMessage> for JsonValue {
                 session_id,
                 connection_count,
                 last_close_reason,
+                max_observed_timestamp,
             } => ClientMessageJson::Connect {
                 session_id: format!("{}", session_id.as_hyphenated()),
                 connection_count,
                 last_close_reason: Some(last_close_reason),
+                max_observed_timestamp: max_observed_timestamp.map(|ts| u64_to_string(ts.into())),
             },
             ClientMessage::ModifyQuerySet {
                 base_version,
@@ -284,10 +290,16 @@ impl TryFrom<JsonValue> for ClientMessage {
                 session_id,
                 connection_count,
                 last_close_reason,
+                max_observed_timestamp,
             } => ClientMessage::Connect {
                 session_id: session_id.parse()?,
                 connection_count,
                 last_close_reason: last_close_reason.unwrap_or_else(|| "unknown".to_string()),
+                max_observed_timestamp: max_observed_timestamp
+                    .map(|s| string_to_u64(&s))
+                    .transpose()?
+                    .map(Timestamp::try_from)
+                    .transpose()?,
             },
             ClientMessageJson::ModifyQuerySet {
                 base_version,

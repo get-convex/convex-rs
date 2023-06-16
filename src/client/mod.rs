@@ -657,6 +657,7 @@ pub mod tests {
                     session_id: SessionId::nil(),
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
+                    max_observed_timestamp: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
@@ -788,6 +789,7 @@ pub mod tests {
                     session_id: SessionId::nil(),
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
+                    max_observed_timestamp: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
@@ -844,6 +846,7 @@ pub mod tests {
                     session_id: SessionId::nil(),
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
+                    max_observed_timestamp: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
