@@ -231,13 +231,13 @@ pub enum StateModification<V> {
     QueryUpdated {
         query_id: QueryId,
         value: V,
-        log_lines: LogLines,
+        log_lines: LogLinesMessage,
         journal: SerializedQueryJournal,
     },
     QueryFailed {
         query_id: QueryId,
         error_message: String,
-        log_lines: LogLines,
+        log_lines: LogLinesMessage,
         journal: SerializedQueryJournal,
     },
     QueryRemoved {
@@ -250,7 +250,7 @@ pub enum StateModification<V> {
 pub struct QueryFailure {
     pub query_id: QueryId,
     pub message: String,
-    pub log_lines: LogLines,
+    pub log_lines: LogLinesMessage,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -294,12 +294,12 @@ pub enum ServerMessage<V: 'static> {
         request_id: SessionRequestSeqNumber,
         result: Result<V, String>,
         ts: Option<Timestamp>,
-        log_lines: LogLines,
+        log_lines: LogLinesMessage,
     },
     ActionResponse {
         request_id: SessionRequestSeqNumber,
         result: Result<V, String>,
-        log_lines: LogLines,
+        log_lines: LogLinesMessage,
     },
     AuthError {
         error_message: String,
@@ -312,7 +312,9 @@ pub enum ServerMessage<V: 'static> {
 }
 
 /// List of log lines from a Convex function execution.
-pub type LogLines = Vec<String>;
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct LogLinesMessage(pub Vec<String>);
 
 #[derive(Copy, Clone, Debug, Deref, Eq, FromStr, PartialEq)]
 pub struct SessionId(Uuid);

@@ -1,5 +1,10 @@
 # Upcoming
 
+# 0.3.1
+
+- Fix compilation with `--features=testing`
+- Minor syntactic changes to quickstart
+
 # 0.3.0
 
 - Remove `Value::Id` since document IDs are `Value::String`s for Convex

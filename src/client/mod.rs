@@ -398,6 +398,7 @@ pub mod tests {
     use convex_sync_types::{
         AuthenticationToken,
         ClientMessage,
+        LogLinesMessage,
         Query,
         QueryId,
         QuerySetModification,
@@ -472,7 +473,7 @@ pub mod tests {
             request_id: 0,
             result: result.into(),
             ts: Some(new_version.ts),
-            log_lines: vec![],
+            log_lines: LogLinesMessage(vec![]),
         };
         (mutation_response, transition_response)
     }
@@ -481,7 +482,7 @@ pub mod tests {
         ServerMessage::ActionResponse {
             request_id: 0,
             result: result.into(),
-            log_lines: vec![],
+            log_lines: LogLinesMessage(vec![]),
         }
     }
 
@@ -503,7 +504,7 @@ pub mod tests {
                         query_id,
                         value,
                         journal: None,
-                        log_lines: vec![],
+                        log_lines: LogLinesMessage(vec![]),
                     })
                     .collect(),
             },

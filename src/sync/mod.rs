@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::value::Value;
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 pub mod testing;
 pub mod web_socket_manager;
 

@@ -1,6 +1,7 @@
 // TODO: Find a better home for this than the metrics crate.
 use std::{
     cmp,
+    ops::Div,
     time::Duration,
 };
 
@@ -24,6 +25,12 @@ impl Backoff {
 
     pub fn reset(&mut self) {
         self.num_failures = 0;
+    }
+
+    /// Ensures that fail will return the max_backoff value the next time it is
+    /// called.
+    pub fn max_backoff(&mut self) {
+        self.num_failures = u32::MAX.div(2);
     }
 
     pub fn fail(&mut self, rng: &mut impl Rng) -> Duration {

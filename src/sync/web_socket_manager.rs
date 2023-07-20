@@ -232,7 +232,8 @@ impl WebSocketWorker {
                                 _ => tracing::debug!("received message {server_message:?}"),
                             };
 
-                            let _ = self.on_response.send(ProtocolResponse::ServerMessage(server_message)).await;
+                            let resp = ProtocolResponse::ServerMessage(server_message);
+                            let _ = self.on_response.send(resp).await;
 
                             // TODO: Similar to JS, we should ideally only reset backoff if we get
                             // the client gets into a correct state, where we have Connected and

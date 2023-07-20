@@ -168,7 +168,9 @@ mod tests {
     use crate::Value;
 
     proptest! {
-        #![proptest_config(ProptestConfig { failure_persistence: None, .. ProptestConfig::default() })]
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
 
         #[test]
         fn test_value_roundtrips(value in any::<Value>()) {

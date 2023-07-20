@@ -14,7 +14,7 @@ use crate::{
     AuthenticationToken,
     ClientMessage,
     IdentityVersion,
-    LogLines,
+    LogLinesMessage,
     Query,
     QueryFailure,
     QueryId,
@@ -459,14 +459,14 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for StateM
             QueryUpdated {
                 query_id: QueryId,
                 value: JsonValue,
-                log_lines: Vec<String>,
+                log_lines: LogLinesMessage,
                 journal: SerializedQueryJournal,
             },
             #[serde(rename_all = "camelCase")]
             QueryFailed {
                 query_id: QueryId,
                 error_message: String,
-                log_lines: Vec<String>,
+                log_lines: LogLinesMessage,
                 journal: SerializedQueryJournal,
             },
             #[serde(rename_all = "camelCase")]
@@ -523,7 +523,7 @@ impl TryFrom<JsonValue> for QueryFailure {
         struct QueryFailureJson {
             query_id: u32,
             message: String,
-            log_lines: Vec<String>,
+            log_lines: LogLinesMessage,
         }
         let q: QueryFailureJson = serde_json::from_value(value)?;
         Ok(Self {
@@ -656,7 +656,7 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 success: bool,
                 result: JsonValue,
                 ts: Option<String>,
-                log_lines: LogLines,
+                log_lines: LogLinesMessage,
             },
             #[serde(rename_all = "camelCase")]
             ActionResponse {
@@ -666,7 +666,7 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 action_id: Option<SessionRequestSeqNumber>,
                 success: bool,
                 result: JsonValue,
-                log_lines: LogLines,
+                log_lines: LogLinesMessage,
             },
             #[serde(rename_all = "camelCase")]
             FatalError { error: String },
@@ -933,7 +933,9 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig { failure_persistence: None, .. ProptestConfig::default() })]
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
 
         #[test]
         fn proptest_u64_roundtrips(x in any::<u64>()) {

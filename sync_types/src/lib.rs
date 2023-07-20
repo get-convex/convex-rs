@@ -19,7 +19,7 @@ pub use crate::{
         AuthenticationToken,
         ClientMessage,
         IdentityVersion,
-        LogLines,
+        LogLinesMessage,
         Query,
         QueryFailure,
         QueryId,

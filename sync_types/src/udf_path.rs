@@ -104,7 +104,11 @@ impl proptest::arbitrary::Arbitrary for UdfPath {
         use crate::identifier::arbitrary_regexes::IDENTIFIER_REGEX;
 
         prop_compose! {
-            fn inner()(path in any::<ModulePath>(), has_function in any::<bool>(), function_name in IDENTIFIER_REGEX) -> anyhow::Result<UdfPath> {
+            fn inner()(
+                path in any::<ModulePath>(),
+                has_function in any::<bool>(),
+                function_name in IDENTIFIER_REGEX,
+            ) -> anyhow::Result<UdfPath> {
                 let s = if has_function {
                     format!("{}:{function_name}", path.as_str())
                 } else {
@@ -206,7 +210,9 @@ mod tests {
     use super::UdfPath;
 
     proptest! {
-        #![proptest_config(ProptestConfig { failure_persistence: None, .. ProptestConfig::default() })]
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
 
         #[test]
         fn test_udf_path_roundtrips(left in any::<UdfPath>()) {
