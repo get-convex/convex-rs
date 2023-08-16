@@ -1,5 +1,12 @@
 # Upcoming
 
+# 0.4.0
+
+- Expose an alternate cleaner JSON export format on Value. The clean format is
+  lossy in some cases (eg both integers and strings are encoded as JSON
+  strings).
+- Expose native-tls-vendored feature
+
 # 0.3.1
 
 - Fix compilation with `--features=testing`
