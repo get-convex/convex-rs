@@ -18,6 +18,7 @@ pub use crate::{
     types::{
         AuthenticationToken,
         ClientMessage,
+        ErrorPayload,
         IdentityVersion,
         LogLinesMessage,
         Query,

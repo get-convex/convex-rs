@@ -9,8 +9,8 @@ use crate::Value;
 pub mod roundtrip;
 
 impl Value {
-    /// Converts this value to a JSON value that is more convenient to work with
-    /// than the internal representation.
+    /// Converts this value to a JSON value in the `json` export format.
+    /// <https://docs.convex.dev/database/types>
     ///
     /// It is possible for distinct Convex values to be serialized to the same
     /// JSON value by this method. For instance, strings and binary values are

@@ -301,6 +301,8 @@ impl RemoteQuerySet {
                     error_message,
                     log_lines: _,
                     journal: _,
+                    // TODO @srb: Implement ConvexError in Rust client queries
+                    error_data: _,
                 } => {
                     self.remote_query_set
                         .insert(query_id, FunctionResult::ErrorMessage(error_message));

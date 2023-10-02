@@ -1,5 +1,11 @@
 # Upcoming
 
+# 0.5.0
+
+- Prelim support for ConvexError, encoded into an anyhow::Error. Eventual plan
+  is to expose a separate catchable type, but just getting something out
+  quickly. PRs accepted!
+
 # 0.4.0
 
 - Expose an alternate cleaner JSON export format on Value. The clean format is

@@ -239,6 +239,7 @@ pub enum StateModification<V> {
         error_message: String,
         log_lines: LogLinesMessage,
         journal: SerializedQueryJournal,
+        error_data: Option<V>,
     },
     QueryRemoved {
         query_id: QueryId,
@@ -283,6 +284,7 @@ pub enum ServerMessage<V: 'static> {
         )]
         modifications: Vec<StateModification<V>>,
     },
+    // Deprecated in 0.1.2, only sent to old clients
     QueriesFailed {
         #[cfg_attr(
             test,
@@ -292,13 +294,13 @@ pub enum ServerMessage<V: 'static> {
     },
     MutationResponse {
         request_id: SessionRequestSeqNumber,
-        result: Result<V, String>,
+        result: Result<V, ErrorPayload<V>>,
         ts: Option<Timestamp>,
         log_lines: LogLinesMessage,
     },
     ActionResponse {
         request_id: SessionRequestSeqNumber,
-        result: Result<V, String>,
+        result: Result<V, ErrorPayload<V>>,
         log_lines: LogLinesMessage,
     },
     AuthError {
@@ -309,6 +311,25 @@ pub enum ServerMessage<V: 'static> {
         error_message: String,
     },
     Ping,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ErrorPayload<V: 'static> {
+    /// From any error, redacted from prod deployments.
+    Message(String),
+    /// From ConvexError, never redacted.
+    /// `message` is generic, partly for backwards compatibility.
+    ErrorData { message: String, data: V },
+}
+
+impl<V: 'static> ErrorPayload<V> {
+    pub fn get_message(&self) -> &str {
+        match self {
+            ErrorPayload::Message(message) => message,
+            ErrorPayload::ErrorData { message, .. } => message,
+        }
+    }
 }
 
 /// List of log lines from a Convex function execution.

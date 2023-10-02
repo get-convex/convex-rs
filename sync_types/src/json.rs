@@ -10,7 +10,10 @@ use serde_json::{
 };
 
 use crate::{
-    types::ClientEvent,
+    types::{
+        ClientEvent,
+        ErrorPayload,
+    },
     AuthenticationToken,
     ClientMessage,
     IdentityVersion,
@@ -432,13 +435,21 @@ impl<V: Into<JsonValue>> From<StateModification<V>> for JsonValue {
                 error_message,
                 log_lines,
                 journal,
-            } => json!({
-                "type": "QueryFailed",
-                "queryId": query_id,
-                "errorMessage": error_message,
-                "logLines": log_lines,
-                "journal": journal
-            }),
+                error_data,
+            } => {
+                let mut response = json!({
+                    "type": "QueryFailed",
+                    "queryId": query_id,
+                    "errorMessage": error_message,
+                    "logLines": log_lines,
+                    "journal": journal
+                });
+
+                if let Some(error_data) = error_data {
+                    response["errorData"] = error_data.into();
+                }
+                response
+            },
             StateModification::QueryRemoved { query_id } => json!({
                 "type": "QueryRemoved",
                 "queryId": query_id,
@@ -468,6 +479,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for StateM
                 error_message: String,
                 log_lines: LogLinesMessage,
                 journal: SerializedQueryJournal,
+                #[serde(default, deserialize_with = "deserialize_some")]
+                error_data: Option<JsonValue>,
             },
             #[serde(rename_all = "camelCase")]
             QueryRemoved { query_id: QueryId },
@@ -490,11 +503,15 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for StateM
                 error_message,
                 log_lines,
                 journal,
+                error_data,
             } => StateModification::QueryFailed {
                 query_id,
                 error_message,
                 log_lines,
                 journal,
+                error_data: error_data
+                    .map(|error_data| error_data.try_into())
+                    .transpose()?,
             },
             StateModificationJson::QueryRemoved { query_id } => {
                 StateModification::QueryRemoved { query_id }
@@ -571,19 +588,25 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
             },
             ServerMessage::MutationResponse {
                 request_id,
-                result: Err(s),
+                result: Err(error_payload),
                 ts,
                 log_lines,
-            } => json!({
-                "type": "MutationResponse",
-                // TODO(presley): Delete when we deprecate convex 0.6.0.
-                "mutationId": request_id,
-                "requestId": request_id,
-                "success": false,
-                "result": s,
-                "ts": ts.map(|ts| u64_to_string(ts.into())),
-                "logLines": log_lines,
-            }),
+            } => {
+                let mut response = json!({
+                    "type": "MutationResponse",
+                    // TODO(presley): Delete when we deprecate convex 0.6.0.
+                    "mutationId": request_id,
+                    "requestId": request_id,
+                    "success": false,
+                    "result": error_payload.get_message(),
+                    "ts": ts.map(|ts| u64_to_string(ts.into())),
+                    "logLines": log_lines,
+                });
+                if let ErrorPayload::ErrorData { data, .. } = error_payload {
+                    response["errorData"] = data.into();
+                }
+                response
+            },
             ServerMessage::ActionResponse {
                 request_id,
                 result: Ok(value),
@@ -602,17 +625,23 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
             },
             ServerMessage::ActionResponse {
                 request_id,
-                result: Err(s),
+                result: Err(error_payload),
                 log_lines,
-            } => json!({
-                "type": "ActionResponse",
-                // TODO(presley): Delete when we deprecate convex 0.6.0.
-                "actionId": request_id,
-                "requestId": request_id,
-                "success": false,
-                "result": s,
-                "logLines": log_lines,
-            }),
+            } => {
+                let mut response = json!({
+                    "type": "ActionResponse",
+                    // TODO(presley): Delete when we deprecate convex 0.6.0.
+                    "actionId": request_id,
+                    "requestId": request_id,
+                    "success": false,
+                    "result": error_payload.get_message(),
+                    "logLines": log_lines,
+                });
+                if let ErrorPayload::ErrorData { data, .. } = error_payload {
+                    response["errorData"] = data.into();
+                }
+                response
+            },
             ServerMessage::AuthError {
                 error_message,
                 base_version,
@@ -657,6 +686,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 result: JsonValue,
                 ts: Option<String>,
                 log_lines: LogLinesMessage,
+                #[serde(default, deserialize_with = "deserialize_some")]
+                error_data: Option<JsonValue>,
             },
             #[serde(rename_all = "camelCase")]
             ActionResponse {
@@ -667,6 +698,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 success: bool,
                 result: JsonValue,
                 log_lines: LogLinesMessage,
+                #[serde(default, deserialize_with = "deserialize_some")]
+                error_data: Option<JsonValue>,
             },
             #[serde(rename_all = "camelCase")]
             FatalError { error: String },
@@ -705,12 +738,20 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 result,
                 ts,
                 log_lines,
+                error_data,
             } => {
                 let result = if success {
                     Ok(result.try_into()?)
                 } else {
                     let msg: String = serde_json::from_value(result)?;
-                    Err(msg)
+                    Err(if let Some(data) = error_data {
+                        ErrorPayload::ErrorData {
+                            message: msg,
+                            data: data.try_into()?,
+                        }
+                    } else {
+                        ErrorPayload::Message(msg)
+                    })
                 };
                 let request_id = if let Some(request_id) = request_id {
                     request_id
@@ -736,12 +777,20 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 success,
                 result,
                 log_lines,
+                error_data,
             } => {
                 let result = if success {
                     Ok(result.try_into()?)
                 } else {
                     let msg: String = serde_json::from_value(result)?;
-                    Err(msg)
+                    Err(if let Some(data) = error_data {
+                        ErrorPayload::ErrorData {
+                            message: msg,
+                            data: data.try_into()?,
+                        }
+                    } else {
+                        ErrorPayload::Message(msg)
+                    })
                 };
                 let request_id = if let Some(request_id) = request_id {
                     request_id
@@ -889,6 +938,15 @@ impl TryFrom<UserIdentityAttributes> for JsonValue {
     }
 }
 
+// Make sure that `null` is `Some(JsonValue::Null)`, not `None`
+fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -905,7 +963,10 @@ mod tests {
     use crate::{
         testing::assert_roundtrips,
         ClientMessage,
+        QueryId,
         ServerMessage,
+        StateModification,
+        Timestamp,
         UserIdentifier,
         UserIdentityAttributes,
     };
@@ -1003,5 +1064,41 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Either \"tokenIdentifier\" or \"issuer\" and \"subject\" must be set"));
+    }
+
+    #[test]
+    fn server_message_mutation_response_with_null_error_data_roundtrips() {
+        assert_roundtrips::<ServerMessage<TestValue>, JsonValue>(ServerMessage::MutationResponse {
+            request_id: 1,
+            result: Err(crate::types::ErrorPayload::ErrorData {
+                message: "".to_string(),
+                data: TestValue(JsonValue::Null),
+            }),
+            ts: None,
+            log_lines: crate::LogLinesMessage(vec![]),
+        });
+    }
+
+    #[test]
+    fn server_message_transition_with_null_error_data_roundtrips() {
+        assert_roundtrips::<ServerMessage<TestValue>, JsonValue>(ServerMessage::Transition {
+            start_version: crate::StateVersion {
+                query_set: 1,
+                identity: 1,
+                ts: Timestamp::must(1),
+            },
+            end_version: crate::StateVersion {
+                query_set: 1,
+                identity: 1,
+                ts: Timestamp::must(1),
+            },
+            modifications: vec![StateModification::QueryFailed {
+                query_id: QueryId::new(1),
+                error_message: "".to_string(),
+                log_lines: crate::LogLinesMessage(vec![]),
+                journal: None,
+                error_data: Some(TestValue(JsonValue::Null)),
+            }],
+        });
     }
 }

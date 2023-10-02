@@ -1,5 +1,3 @@
-use anyhow::bail;
-
 pub const MAX_IDENTIFIER_LEN: usize = 64;
 
 pub const IDENTIFIER_REQUIREMENTS: &str =
@@ -24,33 +22,45 @@ pub const IDENTIFIER_REQUIREMENTS: &str =
 /// [3]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_START%3A%5D&g=&i=>
 /// [4]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_CONTINUE%3A%5D&g=&i=>
 pub fn check_valid_identifier(s: &str) -> anyhow::Result<()> {
+    check_valid_identifier_inner(s).map_err(|e| anyhow::anyhow!(e))
+}
+
+pub fn is_valid_identifier(s: &str) -> bool {
+    check_valid_identifier_inner(s).is_ok()
+}
+
+fn check_valid_identifier_inner(s: &str) -> Result<(), String> {
     let mut chars = s.chars();
     match chars.next() {
         Some(c) if c.is_ascii_alphabetic() => (),
         Some('_') => (),
-        Some(c) => bail!(
-            "Invalid first character '{c}' in {s}: Identifiers must start with an alphabetic \
-             character or underscore"
-        ),
-        None => bail!("Identifier cannot be empty"),
+        Some(c) => {
+            return Err(format!(
+                "Invalid first character '{c}' in {s}: Identifiers must start with an alphabetic \
+                 character or underscore"
+            ))
+        },
+        None => return Err(format!("Identifier cannot be empty")),
     };
     for c in chars {
         if !c.is_ascii_alphanumeric() && c != '_' {
-            bail!(
+            return Err(format!(
                 "Identifier {s} has invalid character '{c}': Identifiers can only contain \
                  alphanumeric characters or underscores"
-            );
+            ));
         }
     }
     if s.len() > MAX_IDENTIFIER_LEN {
-        bail!(
+        return Err(format!(
             "Identifier is too long ({} > maximum {})",
             s.len(),
             MAX_IDENTIFIER_LEN
-        );
+        ));
     }
     if s.chars().all(|c| c == '_') {
-        bail!("Identifier {s} cannot have exclusively underscores");
+        return Err(format!(
+            "Identifier {s} cannot have exclusively underscores"
+        ));
     }
     Ok(())
 }
@@ -64,33 +74,45 @@ pub const MAX_FIELD_NAME_LENGTH: usize = 1024;
 /// Field names cannot start with '$', must contain only non-control ASCII
 /// characters, and must be at most 1024 characters long.
 pub fn check_valid_field_name(s: &str) -> anyhow::Result<()> {
+    check_valid_field_name_inner(s).map_err(|e| anyhow::anyhow!(e))
+}
+
+pub fn is_valid_field_name(s: &str) -> bool {
+    check_valid_field_name_inner(s).is_ok()
+}
+
+fn check_valid_field_name_inner(s: &str) -> Result<(), String> {
     let mut chars = s.chars();
     match chars.next() {
-        Some('$') => bail!("Field name {s} starts with '$', which is reserved."),
+        Some('$') => {
+            return Err(format!(
+                "Field name {s} starts with '$', which is reserved."
+            ))
+        },
         Some(c) => {
             if !c.is_ascii() || c.is_ascii_control() {
-                bail!(
+                return Err(format!(
                     "Field name {s} has invalid character '{c}': Field names can only contain \
                      non-control ASCII characters"
-                );
+                ));
             }
         },
-        None => bail!("Field name cannot be empty"),
+        None => return Err(format!("Field name cannot be empty")),
     };
     for c in chars {
         if !c.is_ascii() || c.is_ascii_control() {
-            bail!(
+            return Err(format!(
                 "Field name {s} has invalid character '{c}': Field names can only contain \
                  non-control ASCII characters"
-            );
+            ));
         }
     }
     if s.len() > MAX_FIELD_NAME_LENGTH {
-        bail!(
+        return Err(format!(
             "Field name is too long ({} > maximum {})",
             s.len(),
             MAX_FIELD_NAME_LENGTH
-        );
+        ));
     }
     Ok(())
 }

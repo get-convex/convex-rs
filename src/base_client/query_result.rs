@@ -1,4 +1,7 @@
-use convex_sync_types::QueryId;
+use convex_sync_types::{
+    types::ErrorPayload,
+    QueryId,
+};
 use imbl::{
     OrdMap,
     OrdSet,
@@ -19,20 +22,22 @@ pub enum FunctionResult {
     ErrorMessage(String),
 }
 
-impl From<Result<Value, String>> for FunctionResult {
-    fn from(result: Result<Value, String>) -> Self {
+impl From<Result<Value, ErrorPayload<Value>>> for FunctionResult {
+    fn from(result: Result<Value, ErrorPayload<Value>>) -> Self {
         match result {
             Ok(value) => FunctionResult::Value(value),
-            Err(error) => FunctionResult::ErrorMessage(error),
+            // TODO @srb: Implement ConvexError in Rust client
+            Err(error) => FunctionResult::ErrorMessage(error.get_message().to_owned()),
         }
     }
 }
 
-impl From<FunctionResult> for Result<Value, String> {
+impl From<FunctionResult> for Result<Value, ErrorPayload<Value>> {
     fn from(result: FunctionResult) -> Self {
         match result {
             FunctionResult::Value(value) => Ok(value),
-            FunctionResult::ErrorMessage(error) => Err(error),
+            // TODO @srb: Implement ConvexError in Rust client
+            FunctionResult::ErrorMessage(error) => Err(ErrorPayload::Message(error)),
         }
     }
 }
