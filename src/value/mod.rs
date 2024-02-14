@@ -1,11 +1,9 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-};
+use std::collections::BTreeMap;
 
 pub mod export;
 mod json;
 mod sorting;
+use thiserror::Error;
 
 /// A value that can be passed as an argument or returned from Convex functions.
 /// They correspond to the [supported Convex types](https://docs.convex.dev/database/types).
@@ -19,8 +17,6 @@ pub enum Value {
     String(String),
     Bytes(Vec<u8>),
     Array(Vec<Value>),
-    Set(BTreeSet<Value>),
-    Map(BTreeMap<Value, Value>),
     Object(BTreeMap<String, Value>),
 }
 
@@ -112,13 +108,29 @@ mod proptest {
                     // through rather than starting the `Value` strategy from
                     // scratch at each tree level.
                     prop::collection::vec(inner.clone(), 0..branching).prop_map(Value::Array),
-                    prop::collection::btree_set(inner.clone(), 0..branching).prop_map(Value::Set),
-                    prop::collection::btree_map(inner.clone(), inner.clone(), 0..branching)
-                        .prop_map(Value::Map),
                     prop::collection::btree_map(any::<String>(), inner, 0..branching)
                         .prop_map(Value::Object),
                 ]
             },
         )
+    }
+}
+
+/// An application error that can be returned from Convex functions. To learn
+/// more about throwing custom application errors, see [Convex Errors](https://docs.convex.dev/functions/error-handling/application-errors#throwing-application-errors).
+#[derive(Error, Clone, PartialEq, Eq)]
+#[error("{:}", message)]
+pub struct ConvexError {
+    /// From any error, redacted from prod deployments.
+    pub message: String,
+    /// Custom application error data payload that can be passed from your
+    /// function to a client.
+    pub data: Value,
+}
+
+impl std::fmt::Debug for ConvexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = &self.message;
+        write!(f, "{message:#?}")
     }
 }

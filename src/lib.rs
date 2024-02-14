@@ -44,7 +44,10 @@
 mod value;
 #[cfg(any(test, feature = "testing"))]
 pub use value::export::roundtrip::ExportContext;
-pub use value::Value;
+pub use value::{
+    ConvexError,
+    Value,
+};
 
 mod client;
 pub use client::{

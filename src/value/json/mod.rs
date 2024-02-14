@@ -1,10 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{
-        btree_map::Entry,
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     num::FpCategory,
 };
 
@@ -46,21 +42,6 @@ impl From<Value> for JsonValue {
             Value::String(s) => json!(s),
             Value::Bytes(b) => json!({ "$bytes": bytes::JsonBytes::encode(&b) }),
             Value::Array(a) => JsonValue::from(a),
-            Value::Set(s) => {
-                let items: Vec<_> = s.into_iter().map(JsonValue::from).collect();
-                json!({
-                    "$set": items,
-                })
-            },
-            Value::Map(m) => {
-                let items: Vec<_> = m
-                    .into_iter()
-                    .map(|(k, v)| [JsonValue::from(k), JsonValue::from(v)])
-                    .collect();
-                json!({
-                    "$map": items,
-                })
-            },
             Value::Object(o) => o.into_iter().collect(),
         }
     }
@@ -113,32 +94,16 @@ impl TryFrom<JsonValue> for Value {
                             Self::from(n)
                         },
                         "$set" => {
-                            let items = match value {
-                                JsonValue::Array(items) => items,
-                                _ => anyhow::bail!("$set must have an array value"),
-                            };
-                            let mut set: BTreeSet<Value> = BTreeSet::new();
-                            for item in items {
-                                if let Some(old_value) = set.replace(Self::try_from(item)?) {
-                                    anyhow::bail!("Duplicate value {old_value:?} in set");
-                                }
-                            }
-                            Self::Set(set)
+                            anyhow::bail!(
+                                "Received a Set which is no longer supported as a Convex type, \
+                                 with values: {value}"
+                            );
                         },
                         "$map" => {
-                            let entries: Vec<[JsonValue; 2]> = serde_json::from_value(value)?;
-                            let mut out = BTreeMap::new();
-                            for [k, v] in entries {
-                                match out.entry(Value::try_from(k)?) {
-                                    Entry::Vacant(e) => {
-                                        e.insert(Value::try_from(v)?);
-                                    },
-                                    Entry::Occupied(e) => {
-                                        anyhow::bail!("Duplicate key {:?} in map", e.key())
-                                    },
-                                }
-                            }
-                            Self::Map(out)
+                            anyhow::bail!(
+                                "Received a Map which is no longer supported as a Convex type, \
+                                 with values: {value}"
+                            );
                         },
                         _ => {
                             let mut fields = BTreeMap::new();

@@ -56,3 +56,8 @@ tracing_subscriber::fmt()
     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
     .init();
 ```
+
+By default, this will emit all logs, including internal logs from the client.
+Logs from your Convex backend will show up under the `convex_logs` target at
+Level=DEBUG. If you want to isolate just those logs, please refer to the
+[tracing_subscriber documentation](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/layer/index.html#filtering-with-layers).

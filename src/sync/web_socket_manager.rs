@@ -229,7 +229,7 @@ impl WebSocketWorker {
                             let server_message = json.try_into()?;
                             match server_message {
                                 ServerMessage::Ping => tracing::trace!("received message {server_message:?}"),
-                                _ => tracing::debug!("received message {server_message:?}"),
+                                _ => tracing::trace!("received message {server_message:?}"),
                             };
 
                             let resp = ProtocolResponse::ServerMessage(server_message);

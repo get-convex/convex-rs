@@ -8,7 +8,10 @@ use imbl::{
 };
 
 use super::SubscriberId;
-use crate::Value;
+use crate::{
+    ConvexError,
+    Value,
+};
 
 /// Result of a Convex function (query/mutation/action).
 ///
@@ -20,14 +23,19 @@ pub enum FunctionResult {
     /// The error message of a Convex function run that does not complete
     /// successfully.
     ErrorMessage(String),
+    /// The error payload of a Convex function run that doesn't complete
+    /// successfully, with an application-level error.
+    ConvexError(ConvexError),
 }
 
 impl From<Result<Value, ErrorPayload<Value>>> for FunctionResult {
     fn from(result: Result<Value, ErrorPayload<Value>>) -> Self {
         match result {
             Ok(value) => FunctionResult::Value(value),
-            // TODO @srb: Implement ConvexError in Rust client
-            Err(error) => FunctionResult::ErrorMessage(error.get_message().to_owned()),
+            Err(ErrorPayload::ErrorData { message, data }) => {
+                FunctionResult::ConvexError(ConvexError { message, data })
+            },
+            Err(ErrorPayload::Message(message)) => FunctionResult::ErrorMessage(message),
         }
     }
 }
@@ -36,8 +44,11 @@ impl From<FunctionResult> for Result<Value, ErrorPayload<Value>> {
     fn from(result: FunctionResult) -> Self {
         match result {
             FunctionResult::Value(value) => Ok(value),
-            // TODO @srb: Implement ConvexError in Rust client
             FunctionResult::ErrorMessage(error) => Err(ErrorPayload::Message(error)),
+            FunctionResult::ConvexError(error) => Err(ErrorPayload::ErrorData {
+                message: error.message,
+                data: error.data,
+            }),
         }
     }
 }
@@ -47,6 +58,9 @@ impl std::fmt::Debug for FunctionResult {
         match self {
             FunctionResult::Value(value) => f.debug_tuple("Value").field(value).finish(),
             FunctionResult::ErrorMessage(error) => write!(f, "{error}"),
+            FunctionResult::ConvexError(error) => {
+                f.debug_tuple("ConvexError").field(error).finish()
+            },
         }
     }
 }

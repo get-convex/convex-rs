@@ -32,11 +32,13 @@ use tokio::sync::oneshot;
 #[cfg(doc)]
 use crate::ConvexClient;
 use crate::{
+    convex_logs,
     sync::{
         ReconnectProtocolReason,
         ServerMessage,
     },
     value::Value,
+    ConvexError,
 };
 
 mod request_manager;
@@ -71,7 +73,7 @@ struct Query {
 }
 
 /// An identifier for a single subscriber to a query.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct SubscriberId(QueryId, usize);
 
@@ -165,7 +167,7 @@ impl LocalSyncState {
             None => panic!("INTERNAL BUG: Unknown query id {query_id}"),
             Some(t) => t,
         };
-        let mut local_query = match self.query_set.get_mut(&query_token) {
+        let local_query = match self.query_set.get_mut(&query_token) {
             None => panic!("INTERNAL BUG: No query found for query token {query_token:?}",),
             Some(q) => q,
         };
@@ -273,7 +275,8 @@ impl RemoteQuerySet {
             start_version,
             end_version,
             modifications,
-        } = transition else {
+        } = transition
+        else {
             panic!("not transition");
         };
         if start_version != self.version {
@@ -290,22 +293,33 @@ impl RemoteQuerySet {
                 StateModification::QueryUpdated {
                     query_id,
                     value,
-                    log_lines: _,
+                    log_lines,
                     journal: _,
                 } => {
+                    for log_line in log_lines.0 {
+                        convex_logs!("{}", log_line);
+                    }
                     self.remote_query_set
                         .insert(query_id, FunctionResult::Value(value));
                 },
                 StateModification::QueryFailed {
                     query_id,
                     error_message,
-                    log_lines: _,
+                    log_lines,
                     journal: _,
-                    // TODO @srb: Implement ConvexError in Rust client queries
-                    error_data: _,
+                    error_data,
                 } => {
-                    self.remote_query_set
-                        .insert(query_id, FunctionResult::ErrorMessage(error_message));
+                    for log_line in log_lines.0 {
+                        convex_logs!("{}", log_line);
+                    }
+                    let function_result = match error_data {
+                        Some(v) => FunctionResult::ConvexError(ConvexError {
+                            message: error_message,
+                            data: v,
+                        }),
+                        None => FunctionResult::ErrorMessage(error_message),
+                    };
+                    self.remote_query_set.insert(query_id, function_result);
                 },
                 StateModification::QueryRemoved { query_id } => {
                     self.remote_query_set.remove(&query_id);
@@ -368,7 +382,7 @@ impl OptimisticQueryResults {
 /// The main methods, [`subscribe`](Self::subscribe()),
 /// [`unsubscribe`](Self::unsubscribe()), and
 /// [`mutation`](Self::mutation()) directly correspond to its
-/// equivalent for the external [ConvexClient](crate::ConvexClient).
+/// equivalent for the external [ConvexClient].
 ///
 /// The only different method is [`get_query`](Self::get_query()), which
 /// returns the current value for a query given its query id. This method can be
@@ -583,22 +597,16 @@ impl BaseConvexClient {
                 }
                 return Ok(Some(self.state.latest_results.clone()));
             },
-            ServerMessage::QueriesFailed { failures } => {
-                // Note that we never expect to receive this as it is not sent by the server.
-                for failure in failures {
-                    tracing::error![failure.message];
-                }
-                tracing::error!(
-                    "Received unexpected QueriesFailed from server. Restarting protocol."
-                );
-                return Err("QueriesFailed, see tracing::error for more details.".to_string());
-            },
             ServerMessage::MutationResponse {
                 request_id,
                 result,
                 ts,
-                log_lines: _,
+                log_lines,
             } => {
+                for log_line in log_lines.0 {
+                    convex_logs!("{}", log_line);
+                }
+
                 if let Some(ts) = ts {
                     self.observe_timestamp(ts);
                 }
@@ -629,8 +637,11 @@ impl BaseConvexClient {
             ServerMessage::ActionResponse {
                 request_id,
                 result,
-                log_lines: _,
+                log_lines,
             } => {
+                for log_line in log_lines.0 {
+                    convex_logs!("{}", log_line);
+                }
                 let request_id = RequestId::new(request_id);
                 self.request_manager.update_request(
                     &request_id,
@@ -672,9 +683,7 @@ impl BaseConvexClient {
         let remote_query_results = &self.remote_query_set.remote_query_set;
         let mut query_id_to_value = BTreeMap::new();
         for (query_id, result) in remote_query_results.iter() {
-            let Some(_udf_path) = self
-                    .state
-                    .query_path(*query_id) else {
+            let Some(_udf_path) = self.state.query_path(*query_id) else {
                 // It's possible that we've already unsubscribed to this query but
                 // the server hasn't learned about that yet. If so, ignore this one.
                 continue;
@@ -700,4 +709,18 @@ impl BaseConvexClient {
     fn local_query_result(&self, query_id: QueryId) -> Option<FunctionResult> {
         self.optimistic_query_results.query_result(query_id)
     }
+}
+
+/// Macro used for piping UDF logs to a custom formatter that exposes
+/// just the log content, without any additional Rust metadata.
+#[macro_export]
+macro_rules! convex_logs {
+    (target: $target:expr, $($arg:tt)+) => {
+        tracing::event!(target: "convex_logs", tracing::Level::DEBUG, $($arg)+);
+        // Additional custom behavior can be added here
+    };
+    ($($arg:tt)+) => {
+        tracing::event!(target: "convex_logs", tracing::Level::DEBUG, $($arg)+);
+        // Additional custom behavior can be added here
+    };
 }

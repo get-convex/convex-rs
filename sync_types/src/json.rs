@@ -19,7 +19,6 @@ use crate::{
     IdentityVersion,
     LogLinesMessage,
     Query,
-    QueryFailure,
     QueryId,
     QuerySetModification,
     SerializedQueryJournal,
@@ -173,19 +172,13 @@ enum ClientMessageJson {
     },
     #[serde(rename_all = "camelCase")]
     Mutation {
-        // TODO(presley): Delete mutation_id and make request_id non optional
-        // when we deprecate convex 0.6.0
-        mutation_id: Option<u32>,
-        request_id: Option<u32>,
+        request_id: u32,
         udf_path: String,
         args: JsonValue,
     },
     #[serde(rename_all = "camelCase")]
     Action {
-        // TODO(presley): Delete action_id and make request_id non optional
-        // when we deprecate convex 0.6.0
-        action_id: Option<u32>,
-        request_id: Option<u32>,
+        request_id: u32,
         udf_path: String,
         args: JsonValue,
     },
@@ -235,8 +228,7 @@ impl TryFrom<ClientMessage> for JsonValue {
                 udf_path,
                 args,
             } => ClientMessageJson::Mutation {
-                request_id: Some(request_id),
-                mutation_id: Some(request_id),
+                request_id,
                 udf_path: String::from(udf_path),
                 args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
             },
@@ -245,8 +237,7 @@ impl TryFrom<ClientMessage> for JsonValue {
                 udf_path,
                 args,
             } => ClientMessageJson::Action {
-                request_id: Some(request_id),
-                action_id: Some(request_id),
+                request_id,
                 udf_path: String::from(udf_path),
                 args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
             },
@@ -318,19 +309,10 @@ impl TryFrom<JsonValue> for ClientMessage {
             },
             ClientMessageJson::Mutation {
                 request_id,
-                mutation_id,
                 udf_path,
                 args,
             } => {
                 let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
-
-                let request_id = if let Some(request_id) = request_id {
-                    request_id
-                } else {
-                    mutation_id.ok_or_else(|| {
-                        anyhow::anyhow!("Either mutation_id or request_id must be set")
-                    })?
-                };
                 ClientMessage::Mutation {
                     request_id,
                     udf_path: udf_path.parse()?,
@@ -339,19 +321,10 @@ impl TryFrom<JsonValue> for ClientMessage {
             },
             ClientMessageJson::Action {
                 request_id,
-                action_id,
                 udf_path,
                 args,
             } => {
                 let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
-
-                let request_id = if let Some(request_id) = request_id {
-                    request_id
-                } else {
-                    action_id.ok_or_else(|| {
-                        anyhow::anyhow!("Either mutation_id or request_id must be set")
-                    })?
-                };
                 ClientMessage::Action {
                     request_id,
                     udf_path: udf_path.parse()?,
@@ -521,36 +494,6 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for StateM
     }
 }
 
-impl From<QueryFailure> for JsonValue {
-    fn from(q: QueryFailure) -> Self {
-        json!({
-            "queryId": q.query_id,
-            "message": q.message,
-            "logLines": q.log_lines,
-        })
-    }
-}
-
-impl TryFrom<JsonValue> for QueryFailure {
-    type Error = anyhow::Error;
-
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryFailureJson {
-            query_id: u32,
-            message: String,
-            log_lines: LogLinesMessage,
-        }
-        let q: QueryFailureJson = serde_json::from_value(value)?;
-        Ok(Self {
-            query_id: QueryId::new(q.query_id),
-            message: q.message,
-            log_lines: q.log_lines,
-        })
-    }
-}
-
 impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
     fn from(m: ServerMessage<V>) -> Self {
         match m {
@@ -564,10 +507,6 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 "endVersion": JsonValue::from(end_version),
                 "modifications": modifications.into_iter().map(JsonValue::from).collect::<Vec<JsonValue>>(),
             }),
-            ServerMessage::QueriesFailed { failures } => json!({
-                "type": "QueriesFailed",
-                "failures": failures.into_iter().map(JsonValue::from).collect::<Vec<_>>(),
-            }),
             ServerMessage::MutationResponse {
                 request_id,
                 result: Ok(value),
@@ -577,8 +516,6 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 let jv: JsonValue = value.into();
                 json!({
                     "type": "MutationResponse",
-                    // TODO(presley): Delete when we deprecate convex 0.6.0.
-                    "mutationId": request_id,
                     "requestId": request_id,
                     "success": true,
                     "result": jv,
@@ -594,8 +531,6 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
             } => {
                 let mut response = json!({
                     "type": "MutationResponse",
-                    // TODO(presley): Delete when we deprecate convex 0.6.0.
-                    "mutationId": request_id,
                     "requestId": request_id,
                     "success": false,
                     "result": error_payload.get_message(),
@@ -615,8 +550,6 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 let jv: JsonValue = value.into();
                 json!({
                     "type": "ActionResponse",
-                    // TODO(presley): Delete when we deprecate convex 0.6.0.
-                    "actionId": request_id,
                     "requestId": request_id,
                     "success": true,
                     "result": jv,
@@ -630,8 +563,6 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
             } => {
                 let mut response = json!({
                     "type": "ActionResponse",
-                    // TODO(presley): Delete when we deprecate convex 0.6.0.
-                    "actionId": request_id,
                     "requestId": request_id,
                     "success": false,
                     "result": error_payload.get_message(),
@@ -675,13 +606,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 modifications: Vec<JsonValue>,
             },
             #[serde(rename_all = "camelCase")]
-            QueriesFailed { failures: Vec<JsonValue> },
-            #[serde(rename_all = "camelCase")]
             MutationResponse {
-                // TODO(presley): Delete mutation_id and make request_id non optional
-                // when we deprecate old 0.6.0
-                request_id: Option<SessionRequestSeqNumber>,
-                mutation_id: Option<SessionRequestSeqNumber>,
+                request_id: SessionRequestSeqNumber,
                 success: bool,
                 result: JsonValue,
                 ts: Option<String>,
@@ -691,10 +617,7 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
             },
             #[serde(rename_all = "camelCase")]
             ActionResponse {
-                // TODO(presley): Delete mutation_id and make request_id non optional
-                // when we deprecate old 0.6.0
-                request_id: Option<SessionRequestSeqNumber>,
-                action_id: Option<SessionRequestSeqNumber>,
+                request_id: SessionRequestSeqNumber,
                 success: bool,
                 result: JsonValue,
                 log_lines: LogLinesMessage,
@@ -725,15 +648,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                     .map(|sm: JsonValue| sm.try_into())
                     .collect::<anyhow::Result<Vec<StateModification<V>>>>()?,
             },
-            ServerMessageJson::QueriesFailed { failures } => ServerMessage::QueriesFailed {
-                failures: failures
-                    .into_iter()
-                    .map(QueryFailure::try_from)
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-            },
             ServerMessageJson::MutationResponse {
                 request_id,
-                mutation_id,
                 success,
                 result,
                 ts,
@@ -753,13 +669,6 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                         ErrorPayload::Message(msg)
                     })
                 };
-                let request_id = if let Some(request_id) = request_id {
-                    request_id
-                } else {
-                    mutation_id.ok_or_else(|| {
-                        anyhow::anyhow!("Either mutation_id or request_id must be set")
-                    })?
-                };
                 ServerMessage::MutationResponse {
                     request_id,
                     result,
@@ -773,7 +682,6 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
             },
             ServerMessageJson::ActionResponse {
                 request_id,
-                action_id,
                 success,
                 result,
                 log_lines,
@@ -791,13 +699,6 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                     } else {
                         ErrorPayload::Message(msg)
                     })
-                };
-                let request_id = if let Some(request_id) = request_id {
-                    request_id
-                } else {
-                    action_id.ok_or_else(|| {
-                        anyhow::anyhow!("Either mutation_id or request_id must be set")
-                    })?
                 };
                 ServerMessage::ActionResponse {
                     request_id,

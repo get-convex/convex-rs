@@ -77,6 +77,11 @@ impl Timestamp {
         }
         Self(value as u64)
     }
+
+    pub fn export_lossy_as_f64(self) -> f64 {
+        // This cast is safe and lossless up to the year 2248.
+        self.0 as f64
+    }
 }
 
 impl fmt::Display for Timestamp {
@@ -128,6 +133,12 @@ impl TryFrom<SystemTime> for Timestamp {
             .try_into()
             .context("SystemTime past 2262")?;
         Self::try_from(system_ns)
+    }
+}
+
+impl From<Timestamp> for SystemTime {
+    fn from(ts: Timestamp) -> Self {
+        SystemTime::UNIX_EPOCH + Duration::from_nanos(ts.0)
     }
 }
 

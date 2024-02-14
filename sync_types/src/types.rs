@@ -21,7 +21,9 @@ use crate::{
     UdfPath,
 };
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize, Hash,
+)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct QueryId(u32);
 
@@ -144,6 +146,7 @@ impl UserIdentifier {
         Self(format!("{}|{}", issuer_name, subject))
     }
 }
+
 impl Deref for UserIdentifier {
     type Target = str;
 
@@ -246,14 +249,6 @@ pub enum StateModification<V> {
     },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct QueryFailure {
-    pub query_id: QueryId,
-    pub message: String,
-    pub log_lines: LogLinesMessage,
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct StateVersion {
@@ -283,14 +278,6 @@ pub enum ServerMessage<V: 'static> {
             proptest(strategy = "prop::collection::vec(any::<StateModification<V>>(), 0..8)")
         )]
         modifications: Vec<StateModification<V>>,
-    },
-    // Deprecated in 0.1.2, only sent to old clients
-    QueriesFailed {
-        #[cfg_attr(
-            test,
-            proptest(strategy = "prop::collection::vec(any::<QueryFailure>(), 0..8)")
-        )]
-        failures: Vec<QueryFailure>,
     },
     MutationResponse {
         request_id: SessionRequestSeqNumber,
@@ -328,6 +315,13 @@ impl<V: 'static> ErrorPayload<V> {
         match self {
             ErrorPayload::Message(message) => message,
             ErrorPayload::ErrorData { message, .. } => message,
+        }
+    }
+
+    pub fn get_data(&self) -> Option<&V> {
+        match self {
+            ErrorPayload::Message(..) => None,
+            ErrorPayload::ErrorData { message: _, data } => Some(data),
         }
     }
 }

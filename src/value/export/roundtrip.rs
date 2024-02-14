@@ -40,8 +40,6 @@ impl ExportContext {
             Value::Array(elements) => {
                 ExportContext::Array(elements.iter().map(ExportContext::of).collect())
             },
-            Value::Set(_) => ExportContext::Set,
-            Value::Map(_) => ExportContext::Map,
             Value::Object(fields) => ExportContext::Object(
                 fields
                     .iter()

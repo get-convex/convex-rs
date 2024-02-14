@@ -128,7 +128,6 @@ pub mod arbitrary_regexes {
     // Technically this can be broader, but system fields are usually valid
     // identifiers
     pub const SYSTEM_FIELD_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,62}";
-    pub const ENV_VAR_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,38}";
 }
 
 #[cfg(test)]

@@ -3,10 +3,7 @@
 
 use std::{
     cmp::Ordering,
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
 };
 
 use crate::value::Value;
@@ -20,8 +17,6 @@ enum OrdValue<'a> {
     String(&'a String),
     Bytes(&'a Vec<u8>),
     Array(&'a Vec<Value>),
-    Set(&'a BTreeSet<Value>),
-    Map(&'a BTreeMap<Value, Value>),
     Object(&'a BTreeMap<String, Value>),
 }
 
@@ -35,8 +30,6 @@ impl<'a> From<&'a Value> for OrdValue<'a> {
             Value::String(x) => OrdValue::String(x),
             Value::Bytes(x) => OrdValue::Bytes(x),
             Value::Array(x) => OrdValue::Array(x),
-            Value::Set(x) => OrdValue::Set(x),
-            Value::Map(x) => OrdValue::Map(x),
             Value::Object(x) => OrdValue::Object(x),
         }
     }
@@ -52,7 +45,7 @@ impl Ord for TotalOrdF64 {
 }
 impl PartialOrd for TotalOrdF64 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.0.total_cmp(&other.0))
+        Some(self.cmp(other))
     }
 }
 impl PartialEq for TotalOrdF64 {

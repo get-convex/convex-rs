@@ -53,8 +53,6 @@ impl Value {
             Value::Array(values) => {
                 JsonValue::Array(values.into_iter().map(|x| x.export()).collect())
             },
-            // Use the internal representation for deprecated types
-            Value::Set(_) | Value::Map(_) => self.into(),
             Value::Object(map) => JsonValue::Object(
                 map.into_iter()
                     .map(|(key, value)| (key, value.export()))
@@ -66,10 +64,7 @@ impl Value {
 
 #[cfg(test)]
 mod tests {
-    use maplit::{
-        btreemap,
-        btreeset,
-    };
+    use maplit::btreemap;
     use serde_json::json;
 
     use super::*;
@@ -190,44 +185,6 @@ mod tests {
                 "a": "1",
                 "b": "2",
                 "c": "3",
-            }),
-        );
-    }
-
-    #[test]
-    fn maps_use_the_internal_representation() {
-        assert_eq!(
-            Value::Map(btreemap! {
-                "a".into() => 1.into(),
-                "b".into() => 2.into(),
-                "c".into() => 3.into(),
-            })
-            .export(),
-            json!({
-                "$map": [
-                    ["a", { "$integer": "AQAAAAAAAAA=" }],
-                    ["b", { "$integer": "AgAAAAAAAAA=" }],
-                    ["c", { "$integer": "AwAAAAAAAAA=" }],
-                ],
-            }),
-        );
-    }
-
-    #[test]
-    fn sets_use_the_internal_representation() {
-        assert_eq!(
-            Value::Set(btreeset! {
-                1.into(),
-                2.into(),
-                3.into(),
-            })
-            .export(),
-            json!({
-                "$set": [
-                    { "$integer": "AQAAAAAAAAA=" },
-                    { "$integer": "AgAAAAAAAAA=" },
-                    { "$integer": "AwAAAAAAAAA=" },
-                ],
             }),
         );
     }

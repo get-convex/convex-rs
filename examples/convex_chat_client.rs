@@ -162,6 +162,9 @@ async fn main() -> anyhow::Result<()> {
             FunctionResult::ErrorMessage(err) => {
                 println!("{}.", err.red().bold());
             },
+            FunctionResult::ConvexError(err) => {
+                println!("{:?}", err);
+            },
         };
     }
 

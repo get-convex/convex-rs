@@ -22,7 +22,6 @@ pub use crate::{
         IdentityVersion,
         LogLinesMessage,
         Query,
-        QueryFailure,
         QueryId,
         QuerySetModification,
         QuerySetVersion,

@@ -1,4 +1,3 @@
-// TODO: Find a better home for this than the metrics crate.
 use std::{
     cmp,
     ops::Div,

@@ -1,5 +1,12 @@
 # Upcoming
 
+# 0.6.0
+
+- Remove support for Set and Map Convex types. These types are deprecated.
+- Add comprehensive support for ConvexError with `data` payload as part of the
+  `FunctionResult` enum.
+- Better support for emitting loglines
+
 # 0.5.0
 
 - Prelim support for ConvexError, encoded into an anyhow::Error. Eventual plan
