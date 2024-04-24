@@ -24,9 +24,9 @@ proptest-derive = { optional = true, version = "0.4.0" }
 rand = { version = "0.8" }
 serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1" }
 thiserror = { version = "1" }
-tokio = { features = [ "full" ], version = "1" }
+tokio = { optional = true, features = [ "sync" ], version = "1" }
 tokio-stream = { features = [ "io-util", "sync" ], version = "^0.1.8" }
-tokio-tungstenite = { version = "0.20.0" }
+tokio-tungstenite = { optional = true, version = "0.20.0" }
 tracing = { version = "0.1" }
 url = { version = "2" }
 uuid = { features = [ "serde", "v4" ], version = "1.6" }
@@ -43,9 +43,12 @@ proptest-derive = { version = "0.4.0" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [features]
-default = [ "native-tls" ]
-native-tls = [ "tokio-tungstenite/native-tls" ]
-native-tls-vendored = [ "tokio-tungstenite/native-tls-vendored" ]
-rustls-tls-native-roots = [ "tokio-tungstenite/rustls-tls-native-roots" ]
-rustls-tls-webpki-roots = [ "tokio-tungstenite/rustls-tls-webpki-roots" ]
-testing = [ "convex_sync_types/testing", "proptest", "proptest-derive", "parking_lot" ]
+default = [ "full", "native-tls" ]
+native-tls = [ "full", "tokio-tungstenite/native-tls" ]
+native-tls-vendored = [ "full", "tokio-tungstenite/native-tls-vendored" ]
+rustls-tls-native-roots = [ "full", "tokio-tungstenite/rustls-tls-native-roots" ]
+rustls-tls-webpki-roots = [ "full", "tokio-tungstenite/rustls-tls-webpki-roots" ]
+testing = [ "full", "convex_sync_types/testing", "proptest", "proptest-derive", "parking_lot" ]
+full = [ "full-client", "base-client" ]
+full-client = [ "tokio-tungstenite", "tokio/full"]
+base-client = ["tokio/sync"]

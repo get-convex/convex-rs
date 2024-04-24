@@ -10,6 +10,7 @@ use crate::value::Value;
 
 #[cfg(test)]
 pub mod testing;
+#[cfg(any(feature = "full-client"))]
 pub mod web_socket_manager;
 
 /// Upon a protocol failure, an explanation of the failure to pass in on

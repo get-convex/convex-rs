@@ -49,7 +49,10 @@ pub use value::{
     Value,
 };
 
+#[cfg(any(feature = "full-client"))]
 mod client;
+
+#[cfg(any(feature = "full-client"))]
 pub use client::{
     subscription::{
         QuerySetSubscription,
@@ -58,7 +61,10 @@ pub use client::{
     ConvexClient,
 };
 
+#[cfg(any(feature = "base-client"))]
 pub mod base_client;
+
+#[cfg(any(feature = "base-client"))]
 #[doc(inline)]
 pub use base_client::{
     FunctionResult,
