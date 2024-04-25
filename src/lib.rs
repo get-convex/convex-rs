@@ -74,8 +74,7 @@ pub use base_client::{
 
 mod sync;
 
-mod convex_sync_types;
+pub mod convex_sync_types;
 pub use convex_sync_types::{
-    ClientMessage,
-    Timestamp,
+    UdfPath, ServerMessage
 };
