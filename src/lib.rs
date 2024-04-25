@@ -73,3 +73,6 @@ pub use base_client::{
 };
 
 mod sync;
+
+
+pub use convex_sync_types;
