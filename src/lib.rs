@@ -73,8 +73,3 @@ pub use base_client::{
 };
 
 mod sync;
-
-pub mod convex_sync_types;
-pub use convex_sync_types::{
-    UdfPath, ServerMessage
-};
