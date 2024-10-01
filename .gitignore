@@ -45,3 +45,5 @@ convex.code-workspace
 .graphite_repo_config
 .graphite_cache_persist
 .graphite_pr_info
+
+*.chunks.jsonl
