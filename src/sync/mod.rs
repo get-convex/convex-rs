@@ -32,7 +32,7 @@ pub enum ProtocolResponse {
 
 #[async_trait]
 pub trait SyncProtocol: Send + Sized {
-    async fn open(ws_url: Url, on_response: mpsc::Sender<ProtocolResponse>)
+    async fn open(ws_url: Url, on_response: mpsc::Sender<ProtocolResponse>, client_id: Option<String>)
         -> anyhow::Result<Self>;
     async fn send(&mut self, message: ClientMessage) -> anyhow::Result<()>;
     async fn reconnect(&mut self, request: ReconnectRequest);

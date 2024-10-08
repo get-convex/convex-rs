@@ -130,6 +130,11 @@ impl ConvexClient {
     /// # }
     /// ```
     pub async fn new(deployment_url: &str) -> anyhow::Result<Self> {
+        Self::new_with_client_id(deployment_url, None).await
+    }
+
+    #[doc(hidden)]
+    pub async fn new_with_client_id(deployment_url: &str, client_id: Option<String>) -> anyhow::Result<Self> {
         let ws_url = deployment_to_ws_url(deployment_url.try_into()?)?;
 
         // Channels for the `listen` background thread
@@ -141,7 +146,7 @@ impl ConvexClient {
 
         let base_client = BaseConvexClient::new();
 
-        let protocol = WebSocketManager::open(ws_url, response_sender).await?;
+        let protocol = WebSocketManager::open(ws_url, response_sender, client_id).await?;
 
         let listen_handle = tokio::spawn(worker(
             response_receiver,
@@ -447,7 +452,7 @@ pub mod tests {
             let (watch_sender, watch_receiver) = broadcast::channel(1);
 
             let test_protocol =
-                TestProtocolManager::open("ws://test.com".parse()?, response_sender).await?;
+                TestProtocolManager::open("ws://test.com".parse()?, response_sender, None).await?;
             let base_client = BaseConvexClient::new();
 
             let listen_handle = tokio::spawn(worker(
