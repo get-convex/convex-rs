@@ -1,5 +1,10 @@
 # Upcoming
 
+# 0.8.1
+
+- Fix convex-mobile build by not always compiling native-tls-vendored for
+  tokio-tungstenite regardless of requested features
+
 # 0.8.0
 
 - Support for passing through a client_id to ConvexClient
