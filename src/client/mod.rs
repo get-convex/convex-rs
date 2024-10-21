@@ -1,23 +1,11 @@
-use std::{
-    collections::BTreeMap,
-    convert::Infallible,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, convert::Infallible, sync::Arc};
 
-use convex_sync_types::{
-    AuthenticationToken,
-    UdfPath,
-    UserIdentityAttributes,
-};
+use convex_sync_types::{AuthenticationToken, UdfPath, UserIdentityAttributes};
 #[cfg(doc)]
 use futures::Stream;
 use futures::StreamExt;
 use tokio::{
-    sync::{
-        broadcast,
-        mpsc,
-        oneshot,
-    },
+    sync::{broadcast, mpsc, oneshot},
     task::JoinHandle,
 };
 use tokio_stream::wrappers::BroadcastStream;
@@ -27,28 +15,12 @@ use self::worker::AuthenticateRequest;
 #[cfg(doc)]
 use crate::SubscriberId;
 use crate::{
-    base_client::{
-        BaseConvexClient,
-        QueryResults,
-    },
+    base_client::{BaseConvexClient, QueryResults},
     client::{
-        subscription::{
-            QuerySetSubscription,
-            QuerySubscription,
-        },
-        worker::{
-            worker,
-            ActionRequest,
-            ClientRequest,
-            MutationRequest,
-            SubscribeRequest,
-        },
+        subscription::{QuerySetSubscription, QuerySubscription},
+        worker::{worker, ActionRequest, ClientRequest, MutationRequest, SubscribeRequest},
     },
-    sync::{
-        web_socket_manager::WebSocketManager,
-        SyncProtocol,
-        WebSocketState,
-    },
+    sync::{web_socket_manager::WebSocketManager, SyncProtocol, WebSocketState},
     value::Value,
     FunctionResult,
 };
@@ -119,7 +91,7 @@ impl Drop for ConvexClient {
 }
 
 impl ConvexClient {
-    /// Create a new [`ConvexClient`] connected to the given deployment URL.
+    /// Constructs a new client for communicating with `deployment_url`.
     ///
     /// ```no_run
     /// # use convex::ConvexClient;
@@ -418,7 +390,7 @@ impl ConvexClientBuilder {
         self
     }
 
-    /// Set a custom on_state_change callback for this client.
+    /// Set a channel to be notified of changes to the WebSocket connection state.
     pub fn with_on_state_change(mut self, on_state_change: mpsc::Sender<WebSocketState>) -> Self {
         self.on_state_change = Some(on_state_change);
         self
@@ -439,56 +411,25 @@ impl ConvexClientBuilder {
     }
 }
 
-impl ConvexClient {
-    /// Create a new [`ConvexClientBuilder`] to configure a client.
-    pub fn builder(deployment_url: &str) -> ConvexClientBuilder {
-        ConvexClientBuilder::new(deployment_url)
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
-    use std::{
-        str::FromStr,
-        sync::Arc,
-        time::Duration,
-    };
+    use std::{str::FromStr, sync::Arc, time::Duration};
 
     use convex_sync_types::{
-        AuthenticationToken,
-        ClientMessage,
-        LogLinesMessage,
-        Query,
-        QueryId,
-        QuerySetModification,
-        SessionId,
-        StateModification,
-        StateVersion,
-        UdfPath,
-        UserIdentityAttributes,
+        AuthenticationToken, ClientMessage, LogLinesMessage, Query, QueryId, QuerySetModification,
+        SessionId, StateModification, StateVersion, UdfPath, UserIdentityAttributes,
     };
     use futures::StreamExt;
     use maplit::btreemap;
     use pretty_assertions::assert_eq;
     use serde_json::json;
-    use tokio::sync::{
-        broadcast,
-        mpsc,
-    };
+    use tokio::sync::{broadcast, mpsc};
 
     use super::ConvexClient;
     use crate::{
         base_client::FunctionResult,
-        client::{
-            deployment_to_ws_url,
-            worker::worker,
-            BaseConvexClient,
-        },
-        sync::{
-            testing::TestProtocolManager,
-            ServerMessage,
-            SyncProtocol,
-        },
+        client::{deployment_to_ws_url, worker::worker, BaseConvexClient},
+        sync::{testing::TestProtocolManager, ServerMessage, SyncProtocol},
         value::Value,
     };
 
