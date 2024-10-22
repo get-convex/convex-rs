@@ -10,6 +10,7 @@ test*.db
 test*.db-journal
 test_local_storage/
 convex_local_backend*.sqlite3
+convex_local_services*.sqlite3
 convex_local_storage/
 .DS_Store
 __pycache__
