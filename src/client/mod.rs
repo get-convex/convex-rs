@@ -1,11 +1,23 @@
-use std::{collections::BTreeMap, convert::Infallible, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    convert::Infallible,
+    sync::Arc,
+};
 
-use convex_sync_types::{AuthenticationToken, UdfPath, UserIdentityAttributes};
+use convex_sync_types::{
+    AuthenticationToken,
+    UdfPath,
+    UserIdentityAttributes,
+};
 #[cfg(doc)]
 use futures::Stream;
 use futures::StreamExt;
 use tokio::{
-    sync::{broadcast, mpsc, oneshot},
+    sync::{
+        broadcast,
+        mpsc,
+        oneshot,
+    },
     task::JoinHandle,
 };
 use tokio_stream::wrappers::BroadcastStream;
@@ -15,12 +27,28 @@ use self::worker::AuthenticateRequest;
 #[cfg(doc)]
 use crate::SubscriberId;
 use crate::{
-    base_client::{BaseConvexClient, QueryResults},
-    client::{
-        subscription::{QuerySetSubscription, QuerySubscription},
-        worker::{worker, ActionRequest, ClientRequest, MutationRequest, SubscribeRequest},
+    base_client::{
+        BaseConvexClient,
+        QueryResults,
     },
-    sync::{web_socket_manager::WebSocketManager, SyncProtocol, WebSocketState},
+    client::{
+        subscription::{
+            QuerySetSubscription,
+            QuerySubscription,
+        },
+        worker::{
+            worker,
+            ActionRequest,
+            ClientRequest,
+            MutationRequest,
+            SubscribeRequest,
+        },
+    },
+    sync::{
+        web_socket_manager::WebSocketManager,
+        SyncProtocol,
+        WebSocketState,
+    },
     value::Value,
     FunctionResult,
 };
@@ -414,23 +442,47 @@ impl ConvexClientBuilder {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{str::FromStr, sync::Arc, time::Duration};
+    use std::{
+        str::FromStr,
+        sync::Arc,
+        time::Duration,
+    };
 
     use convex_sync_types::{
-        AuthenticationToken, ClientMessage, LogLinesMessage, Query, QueryId, QuerySetModification,
-        SessionId, StateModification, StateVersion, UdfPath, UserIdentityAttributes,
+        AuthenticationToken,
+        ClientMessage,
+        LogLinesMessage,
+        Query,
+        QueryId,
+        QuerySetModification,
+        SessionId,
+        StateModification,
+        StateVersion,
+        UdfPath,
+        UserIdentityAttributes,
     };
     use futures::StreamExt;
     use maplit::btreemap;
     use pretty_assertions::assert_eq;
     use serde_json::json;
-    use tokio::sync::{broadcast, mpsc};
+    use tokio::sync::{
+        broadcast,
+        mpsc,
+    };
 
     use super::ConvexClient;
     use crate::{
         base_client::FunctionResult,
-        client::{deployment_to_ws_url, worker::worker, BaseConvexClient},
-        sync::{testing::TestProtocolManager, ServerMessage, SyncProtocol},
+        client::{
+            deployment_to_ws_url,
+            worker::worker,
+            BaseConvexClient,
+        },
+        sync::{
+            testing::TestProtocolManager,
+            ServerMessage,
+            SyncProtocol,
+        },
         value::Value,
         QuerySubscription,
     };
@@ -723,24 +775,20 @@ pub mod tests {
         let (mut client, mut test_protocol) = ConvexClient::with_test_protocol().await?;
         let subscription1b: QuerySubscription;
         {
-            // This subscription goes out of scope and unsubscribes at the end of this block.
-            // The internal num_subscribers value gets decremented.
+            // This subscription goes out of scope and unsubscribes at the end of this
+            // block. The internal num_subscribers value gets decremented.
             let _ignored = client.subscribe("getValue1", btreemap! {}).await?;
             subscription1b = client.subscribe("getValue1", btreemap! {}).await?;
         }
-        // In the buggy scenario, this subscription gets an ID via num_subscribers ID that matches subscription1b.
-        // That triggers a panic.
+        // In the buggy scenario, this subscription gets an ID via num_subscribers ID
+        // that matches subscription1b. That triggers a panic.
         let subscription1c = client.subscribe("getValue1", btreemap! {}).await?;
         test_protocol.take_sent().await;
         let mut watch = client.watch_all();
 
         test_protocol
             .fake_server_response(
-                fake_transition(
-                    StateVersion::initial(),
-                    vec![(QueryId::new(0), 10.into())],
-                )
-                .0,
+                fake_transition(StateVersion::initial(), vec![(QueryId::new(0), 10.into())]).0,
             )
             .await?;
 

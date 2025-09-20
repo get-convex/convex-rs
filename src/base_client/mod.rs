@@ -64,8 +64,9 @@ struct LocalQuery {
     args: BTreeMap<String, Value>,
     num_subscribers: usize, // TODO: remove
     /// A unique index value for each subscription to this query.
-    /// 
-    /// Must be incremented each time a new subscription is added, and never decremented.
+    ///
+    /// Must be incremented each time a new subscription is added, and never
+    /// decremented.
     subscription_index: usize,
 }
 
