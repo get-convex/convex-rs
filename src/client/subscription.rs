@@ -44,7 +44,8 @@ pub struct QuerySubscription {
     pub(super) subscriber_id: SubscriberId,
     pub(super) request_sender: mpsc::UnboundedSender<ClientRequest>,
     pub(super) watch: BroadcastStream<QueryResults>,
-    pub(super) initial: Option<FunctionResult>,
+    pub(super) sent_initial_value: bool,
+    pub(super) last_value: Option<FunctionResult>,
 }
 impl QuerySubscription {
     /// Returns an identifier for this subscription based on its query and args.
@@ -84,8 +85,11 @@ impl Stream for QuerySubscription {
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
     ) -> task::Poll<Option<Self::Item>> {
-        if let Some(initial) = self.initial.take() {
-            return task::Poll::Ready(Some(initial));
+        if !self.sent_initial_value {
+            self.sent_initial_value = true;
+            if let Some(value) = self.last_value.clone() {
+                return task::Poll::Ready(Some(value));
+            }
         }
         loop {
             return match self.watch.poll_next_unpin(cx) {
@@ -97,6 +101,11 @@ impl Stream for QuerySubscription {
                         // No result yet in the query result set. Keep polling.
                         continue;
                     };
+                    if Some(value) == self.last_value.as_ref() {
+                        // Redundant
+                        continue;
+                    }
+                    self.last_value = Some(value.clone());
                     task::Poll::Ready(Some(value.clone()))
                 },
                 task::Poll::Ready(None) => task::Poll::Ready(None),
