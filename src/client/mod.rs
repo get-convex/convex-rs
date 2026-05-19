@@ -694,7 +694,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 0,
+                base_version: 0.into(),
                 token: AuthenticationToken::User("myauthtoken".into()),
             }]
         );
@@ -705,7 +705,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 1,
+                base_version: 1.into(),
                 token: AuthenticationToken::None,
             }]
         );
@@ -716,7 +716,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 2,
+                base_version: 2.into(),
                 token: AuthenticationToken::Admin("myadminauth".into(), None),
             }]
         );
@@ -733,7 +733,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 3,
+                base_version: 3.into(),
                 token: AuthenticationToken::Admin("myadminauth".into(), Some(acting_as)),
             }]
         );
@@ -754,7 +754,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 0,
+                base_version: 0.into(),
                 token: AuthenticationToken::User("callback_token".into()),
             }]
         );
@@ -765,7 +765,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 1,
+                base_version: 1.into(),
                 token: AuthenticationToken::None,
             }]
         );
@@ -785,7 +785,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 0,
+                base_version: 0.into(),
                 token: AuthenticationToken::None,
             }]
         );
@@ -803,7 +803,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 0,
+                base_version: 0.into(),
                 token: AuthenticationToken::User("static_token".into()),
             }]
         );
@@ -814,7 +814,7 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::Authenticate {
-                base_version: 1,
+                base_version: 1.into(),
                 token: AuthenticationToken::None,
             }]
         );
@@ -838,8 +838,8 @@ pub mod tests {
                     client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
-                    base_version: 0,
-                    new_version: 1,
+                    base_version: 0.into(),
+                    new_version: 1.into(),
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id,
                         udf_path: "getValue1".parse()?,
@@ -874,8 +874,8 @@ pub mod tests {
         assert_eq!(
             test_protocol.take_sent().await,
             vec![ClientMessage::ModifyQuerySet {
-                base_version: 1,
-                new_version: 2,
+                base_version: 1.into(),
+                new_version: 2.into(),
                 modifications: vec![QuerySetModification::Remove { query_id }],
             }]
         );
@@ -1006,8 +1006,8 @@ pub mod tests {
                     client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
-                    base_version: 0,
-                    new_version: 1,
+                    base_version: 0.into(),
+                    new_version: 1.into(),
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription1.query_id(),
                         udf_path: "getValue1".parse()?,
@@ -1017,8 +1017,8 @@ pub mod tests {
                     })]
                 },
                 ClientMessage::ModifyQuerySet {
-                    base_version: 1,
-                    new_version: 2,
+                    base_version: 1.into(),
+                    new_version: 2.into(),
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription2.query_id(),
                         udf_path: "getValue2".parse()?,
@@ -1028,8 +1028,8 @@ pub mod tests {
                     })]
                 },
                 ClientMessage::ModifyQuerySet {
-                    base_version: 2,
-                    new_version: 3,
+                    base_version: 2.into(),
+                    new_version: 3.into(),
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription3.query_id(),
                         udf_path: "getValue2".parse()?,
@@ -1067,8 +1067,8 @@ pub mod tests {
                     client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
-                    base_version: 0,
-                    new_version: 1,
+                    base_version: 0.into(),
+                    new_version: 1.into(),
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id,
                         udf_path: "getValue".parse()?,

@@ -144,8 +144,7 @@ impl LocalSyncState {
         let query_id = self.next_query_id;
         self.next_query_id = QueryId::new(self.next_query_id.get_id() + 1);
         let base_version = self.query_set_version;
-        self.query_set_version += 1;
-        let new_version = self.query_set_version;
+        let new_version = self.query_set_version.incr();
 
         let add = QuerySetModification::Add(convex_sync_types::Query {
             query_id,
@@ -203,8 +202,7 @@ impl LocalSyncState {
         self.latest_results.results.remove(&query_id);
 
         let base_version = self.query_set_version;
-        self.query_set_version += 1;
-        let new_version = self.query_set_version;
+        let new_version = self.query_set_version.incr();
 
         let remove = QuerySetModification::Remove { query_id };
         Some(ClientMessage::ModifyQuerySet {
@@ -238,7 +236,7 @@ impl LocalSyncState {
 
     fn authenticate(&mut self, token: AuthenticationToken) -> ClientMessage {
         let base_version = self.identity_version;
-        self.identity_version += 1;
+        self.identity_version.incr();
         ClientMessage::Authenticate {
             base_version,
             token,
@@ -246,7 +244,7 @@ impl LocalSyncState {
     }
 
     async fn restart(&mut self) -> Vec<ClientMessage> {
-        self.identity_version = 0;
+        self.identity_version = IdentityVersion::default();
         let mut messages = Vec::new();
 
         // If we have a fetcher, get a fresh token for the new connection.
@@ -254,10 +252,10 @@ impl LocalSyncState {
             match fetcher(true).await {
                 Ok(token) if token != AuthenticationToken::None => {
                     messages.push(ClientMessage::Authenticate {
-                        base_version: 0,
+                        base_version: self.identity_version,
                         token,
                     });
-                    self.identity_version += 1;
+                    self.identity_version.incr();
                 },
                 Ok(_) => {},
                 Err(e) => {
@@ -283,11 +281,13 @@ impl LocalSyncState {
             });
             modifications.push(add)
         }
-        self.query_set_version = 1;
+        self.query_set_version = QuerySetVersion::default();
+        let base_version = self.query_set_version;
+        let new_version = self.query_set_version.incr();
 
         messages.push(ClientMessage::ModifyQuerySet {
-            base_version: 0,
-            new_version: 1,
+            base_version,
+            new_version,
             modifications,
         });
 
@@ -826,7 +826,7 @@ mod tests {
     /// `sync::state::SyncState::modify_query_set`. Returns Err with the
     /// same message the server produces when versions don't match.
     fn simulate_server_version_check(messages: &[ClientMessage]) -> Result<(), String> {
-        let mut query_set_version: QuerySetVersion = 0;
+        let mut query_set_version = QuerySetVersion::default();
         for msg in messages {
             if let ClientMessage::ModifyQuerySet {
                 base_version,
@@ -932,7 +932,7 @@ mod tests {
                 .pop_next_message()
                 .expect("Expected an authentication message."),
             ClientMessage::Authenticate {
-                base_version: 0,
+                base_version: IdentityVersion::default(),
                 token: AuthenticationToken::User("refetched-token".into()),
             }
         );

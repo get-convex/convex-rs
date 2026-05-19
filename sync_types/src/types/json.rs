@@ -28,6 +28,7 @@ use crate::{
     Query,
     QueryId,
     QuerySetModification,
+    QuerySetVersion,
     SerializedQueryJournal,
     ServerMessage,
     SessionRequestSeqNumber,
@@ -207,7 +208,10 @@ enum ClientMessageJsonInner {
         client_ts: Option<i64>,
     },
     #[serde(rename_all = "camelCase")]
-    ModifyQuerySet { base_version: u32, new_version: u32 },
+    ModifyQuerySet {
+        base_version: QuerySetVersion,
+        new_version: QuerySetVersion,
+    },
     #[serde(rename_all = "camelCase")]
     Mutation {
         request_id: u32,
@@ -224,7 +228,7 @@ enum ClientMessageJsonInner {
     },
     #[serde(rename_all = "camelCase")]
     Authenticate {
-        base_version: u32,
+        base_version: IdentityVersion,
         #[serde(flatten)]
         token: AuthenticationTokenJson,
     },
@@ -459,8 +463,8 @@ impl TryFrom<JsonValue> for StateVersion {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct StateVersionJson {
-            query_set: u32,
-            identity: u32,
+            query_set: QuerySetVersion,
+            identity: IdentityVersion,
             ts: String,
         }
         let s: StateVersionJson = serde_json::from_value(value)?;
@@ -1147,13 +1151,13 @@ mod tests {
     fn server_message_transition_with_null_error_data_roundtrips() {
         assert_roundtrips::<ServerMessage<TestValue>, JsonValue>(ServerMessage::Transition {
             start_version: crate::StateVersion {
-                query_set: 1,
-                identity: 1,
+                query_set: 1.into(),
+                identity: 1.into(),
                 ts: Timestamp::must(1),
             },
             end_version: crate::StateVersion {
-                query_set: 1,
-                identity: 1,
+                query_set: 1.into(),
+                identity: 1.into(),
                 ts: Timestamp::must(1),
             },
             modifications: vec![StateModification::QueryFailed {
