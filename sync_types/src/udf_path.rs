@@ -66,7 +66,7 @@ impl From<UdfPath> for String {
         if let Some(ref function) = p.function {
             format!("{}:{}", p.module.as_str(), function)
         } else {
-            format!("{}", p.module.as_str())
+            p.module.as_str().to_string()
         }
     }
 }
@@ -109,7 +109,7 @@ impl proptest::arbitrary::Arbitrary for UdfPath {
                 let s = if has_function {
                     format!("{}:{function_name}", path.as_str())
                 } else {
-                    format!("{}", path.as_str())
+                    path.as_str().to_string()
                 };
                 UdfPath::from_str(&s)
             }
